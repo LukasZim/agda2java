@@ -9,6 +9,7 @@ copyright:           "2022 Author name here"
 extra-source-files:
 - README.md
 - ChangeLog.md
+- simple.agda
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -21,14 +22,16 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
-- text
 - Agda >= 2.6.2.1 && < 2.6.3
-- language-java >= 0.2.9
 - deepseq >= 1.4.5
 - ghc
 - filepath >= 1.4 && < 2
 - containers
 - directory
+- text
+- language-java >= 0.2.9
+- Cabal
+- mtl >= 2.2.2
 
 library:
   source-dirs: src

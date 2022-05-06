@@ -2,7 +2,7 @@ module Lib
     ( someFunc
     ) where
 
-import Agda.Compiler.ToJava
+import Agda.Compiler.Compiler 
 
 someFunc :: IO ()
 someFunc = putStrLn ("someFunc" ++ test)
