@@ -34,3 +34,4 @@
 2022-05-06 21:38:24.272647500000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
 2022-05-06 21:38:45.972341800000 [$pid(ThreadId 5)] ERROR APP - [CRITICAL] can not get the initial ghci prompt.
 2022-05-06 22:01:57.398899600000 [$pid(ThreadId 4)] WARNING REQUEST - unsupported request command. {"command":"stepOut","arguments":{"threadId":0},"type":"request","seq":91}
+2022-05-09 21:37:10.529404200000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"

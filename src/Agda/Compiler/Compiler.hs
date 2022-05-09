@@ -26,14 +26,14 @@ javaBackend = Backend javaBackend'
 javaBackend' :: Backend' JavaOptions JavaOptions () () (IsMain, Definition)
 javaBackend' = Backend' {
     backendName = "agda2java",
-    options = defaultJavaOptions,
+    options = JavaOptions EagerEvaluation,
     commandLineFlags = javaCommandLineFlags,
     isEnabled = const True,
     preCompile = javaPreCompile,
     postCompile = \_ _ _ -> return (),
     preModule = \_ _ _ _ -> return $ Recompile (),
     compileDef = \ _ _ isMain def -> return (isMain, def),
-    postModule = \ _ _ -> javaPostModule,
+    postModule = javaPostModule,
     -- compileDef = javaCompileDef,
     backendVersion = Nothing,
     scopeCheckingSuffices = False,
@@ -47,54 +47,52 @@ javaPreCompile :: JavaOptions -> TCM JavaOptions
 javaPreCompile = return
 
 -- change javaEntry to something from the java-lang library, that makes it so i don't have to do the pretty printing myself
-javaPostModule :: IsMain -> ModuleName -> [(IsMain, Definition)] -> TCM ()
-javaPostModule isMain modName defs = do
-    modtext <- do
-        --[([Text], Maybe TTerm)] ->  ([Text], [Maybe TTerm])
-        let treelessdefs = traverse (defToTreeless [] . snd) defs
-            t1 = fst treelessdefs
-            -- t2 = map pack $ concat $ map (map unpack) t1
-            -- text = concatMap fst treelessdefs
-            d = catMaybes $ snd treelessdefs
-            ds = concat $ traverse (`toJava` t1) d
-        return $ buildBasicJava [buildMainMethod $ Just $ Block ds]
-    let defToText = T.pack . prettyPrint
-        -- modText = T.intercalate (pack "\n\n") $ map defToText modtext
-        fileText = defToText modtext
-        filename = prettyShow (last $ mnameToList modName) ++ ".java"
+-- javaPostModule :: IsMain -> ModuleName -> [(IsMain, Definition)] -> TCM ()
+-- javaPostModule isMain modName defs = do
+--     modtext <- do
+--         --[([Text], Maybe TTerm)] ->  ([Text], [Maybe TTerm])
+--         let treelessdefs = traverse (defToTreeless [] . snd) defs
+--             t1 = fst treelessdefs
+--             -- t2 = map pack $ concat $ map (map unpack) t1
+--             -- text = concatMap fst treelessdefs
+--             t = map snd defs
+--             ts = traverse (defToTreeless []) t
+
+--             d = catMaybes $ snd treelessdefs
+--             ds = concat $ traverse (`toJava` t1) d
+--         -- tts <- traverse (defToTreeless [] (map snd defs))
+--         -- dds <- traverse (`toJava` []) ts
+--         dds <- traverse toJava2 ts
+--         return $ buildBasicJava [buildMainMethod $ Just $ Block ds]
+--     let defToText = T.pack . prettyPrint
+--         -- modText = T.intercalate (pack "\n\n") $ map defToText modtext
+--         fileText = defToText modtext
+--         filename = prettyShow (last $ mnameToList modName) ++ ".java"
+--     -- modText <- runToJavaM opts $ do
+--     --     xs <- traverse defToTreeless defs
+--     --     mainMethod <- buildMainMethod mainBlock
+--     --     buildBasicJava []
+--     liftIO $ T.writeFile filename fileText
+
+javaPostModule :: JavaOptions -> () -> IsMain -> ModuleName -> [(IsMain, Definition)] -> TCM ()
+javaPostModule opts _ ismain modName defs = do
+    let defToText :: CompilationUnit -> Text
+        defToText = T.pack . prettyPrint
+        fileName = prettyShow (last $ mnameToList modName) ++ ".java"
+
+    modText <- runToJavaM opts $ do
+        ts <- catMaybes <$> traverse (defToTreeless2 . snd) defs
+        ds <- traverse toJava2 ts
+        whole <- buildMainMethodMonad ds
+        return $ defToText whole
+
+    liftIO $ T.writeFile fileName modText
+    -- let defToText = T.pack prettyPrint
+    --     fileName = prettyShow (last $ mnameToList modName) ++ ".java"
+
     -- modText <- runToJavaM opts $ do
-    --     xs <- traverse defToTreeless defs
-    --     mainMethod <- buildMainMethod mainBlock
-    --     buildBasicJava []
-    liftIO $ T.writeFile filename fileText
+    --     ts <- catMaybes <$> traverse (defToTreeless2 . snd) defs
+    --     ds <- traverse toJava2 ts
+    --     buildMainMethodMonad ds
 
-
-    -- modules' <- traverse (uncurry writeIntermediate) $ Map.toList modules
--- javaCompileDef :: JavaOptions -> () -> IsMain -> Definition -> TCM [CompilationUnit]
--- javaCompileDef _ _ _ def = do
---     toJava def
-
-
-
--- class ToJava a b where
---     toJava :: a -> TCM b
-
--- instance ToJava Definition [CompilationUnit] where
---     -- toJava def
---     --     | defNoCompilation def || not (usableModality $ getModality def) = return []
---     toJava def = do
---         let qn = defName def
---         case theDef def of
---           Axiom b -> return []
---           DataOrRecSig n -> return []
---           GeneralizableVar -> return []
---           AbstractDefn de -> return []
---           Function cls m_cc m_st m_com cls' fi m_qns ia de m_pro set m_b
---                    m_eli m_qn
---             -> return []
---           Datatype n i m_cl qns so m_qns ia qns' -> return []
---           Record n m_cl ch b dos te m_qns ee poc m_in ia ck -> return []
---           Constructor n i ch qn' ia in' ck m_qns ifs m_bs -> return []
---           Primitive ia s cls fi m_cc -> return []
---           PrimitiveSort s so -> return []
-            
+    -- liftIO $ T.writeFile fileName modText

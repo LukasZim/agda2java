@@ -14,7 +14,7 @@
             "startupFunc": "",
             "startupArgs": "",
             "stopOnEntry": false,
-            "mainArgs": "simple.agda",
+            "mainArgs": "test.agda",
             "ghciPrompt": "H>>= ",
             "ghciInitialPrompt": "> ",
             "ghciCmd": "stack ghci --with-ghc=haskell-dap --test --no-load --no-build --main-is TARGET",

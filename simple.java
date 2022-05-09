@@ -1,0 +1,8 @@
+class Main
+{
+  public static void main (String[] args)
+  ;
+  public void QName {qnameModule = MName {mnameToList = [Name {nameId = NameId 0 (ModuleNameHash 17705254703897498885), nameConcrete = Name {nameRange = NoRange, nameInScope = InScope, nameNameParts = Id "simple" :| []}, nameCanonical = Name {nameRange = NoRange, nameInScope = InScope, nameNameParts = Id "simple" :| []}, nameBindingSite = Range (Just (AbsolutePath {textPath = "C:\\Users\\Lukas\\Documents\\Universiteit\\2021_2022\\Q4\\kanker\\agda2java\\simple.agda"})) (fromList [Interval {iStart = Pn {srcFile = (), posPos = 1, posLine = 1, posCol = 1}, iEnd = Pn {srcFile = (), posPos = 1, posLine = 1, posCol = 1}}]), nameFixity = Fixity' {theFixity = Fixity {fixityRange = NoRange, fixityLevel = Unrelated, fixityAssoc = NonAssoc}, theNotation = [], theNameRange = NoRange}, nameIsRecordName = False}]}, qnameName = Name {nameId = NameId 4 (ModuleNameHash 17705254703897498885), nameConcrete = Name {nameRange = NoRange, nameInScope = InScope, nameNameParts = Id "main" :| []}, nameCanonical = Name {nameRange = NoRange, nameInScope = InScope, nameNameParts = Id "main" :| []}, nameBindingSite = Range (Just (AbsolutePath {textPath = "C:\\Users\\Lukas\\Documents\\Universiteit\\2021_2022\\Q4\\kanker\\agda2java\\simple.agda"})) (fromList [Interval {iStart = Pn {srcFile = (), posPos = 267, posLine = 9, posCol = 1}, iEnd = Pn {srcFile = (), posPos = 271, posLine = 9, posCol = 5}}]), nameFixity = Fixity' {theFixity = Fixity {fixityRange = NoRange, fixityLevel = Unrelated, fixityAssoc = NonAssoc}, theNotation = [], theNameRange = NoRange}, nameIsRecordName = False}} ()
+  {
+  }
+}
