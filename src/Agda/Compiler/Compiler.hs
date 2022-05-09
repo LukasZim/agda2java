@@ -8,7 +8,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Language.Java.Pretty
 
-import Data.Text (Text, pack)
+import Data.Text (Text, pack, unpack)
 import Control.Monad.IO.Class
 import Agda.Utils.Pretty (prettyShow)
 import Agda.Compiler.ToJava
@@ -23,22 +23,22 @@ javaBackend :: Backend
 javaBackend = Backend javaBackend'
 
 -- javaBackend' :: Backend' JavaOptions JavaOptions JavaEnv JavaModule [JavaEntry]
-javaBackend' :: Backend' JavaOptions JavaOptions () () Definition
+javaBackend' :: Backend' JavaOptions JavaOptions () () (IsMain, Definition)
 javaBackend' = Backend' {
     backendName = "agda2java",
-    backendVersion = Nothing,
     options = defaultJavaOptions,
     commandLineFlags = javaCommandLineFlags,
     isEnabled = const True,
     preCompile = javaPreCompile,
     postCompile = \_ _ _ -> return (),
     preModule = \_ _ _ _ -> return $ Recompile (),
+    compileDef = \ _ _ isMain def -> return (isMain, def),
     postModule = \ _ _ -> javaPostModule,
     -- compileDef = javaCompileDef,
-    compileDef = \ _ _ isMain def -> return def,
+    backendVersion = Nothing,
     scopeCheckingSuffices = False,
     mayEraseType = const $ return True
-    }
+}
 
 javaCommandLineFlags :: [OptDescr (Flag JavaOptions)]
 javaCommandLineFlags = []
@@ -47,13 +47,16 @@ javaPreCompile :: JavaOptions -> TCM JavaOptions
 javaPreCompile = return
 
 -- change javaEntry to something from the java-lang library, that makes it so i don't have to do the pretty printing myself
-javaPostModule :: IsMain -> ModuleName -> [Definition] -> TCM ()
+javaPostModule :: IsMain -> ModuleName -> [(IsMain, Definition)] -> TCM ()
 javaPostModule isMain modName defs = do
     modtext <- do
-        let treelessdefs = map (defToTreeless []) defs
-            text = concatMap fst treelessdefs
-            d = catMaybes $ map snd treelessdefs
-            ds = concatMap (`toJava` text) d
+        --[([Text], Maybe TTerm)] ->  ([Text], [Maybe TTerm])
+        let treelessdefs = traverse (defToTreeless [] . snd) defs
+            t1 = fst treelessdefs
+            -- t2 = map pack $ concat $ map (map unpack) t1
+            -- text = concatMap fst treelessdefs
+            d = catMaybes $ snd treelessdefs
+            ds = concat $ traverse (`toJava` t1) d
         return $ buildBasicJava [buildMainMethod $ Just $ Block ds]
     let defToText = T.pack . prettyPrint
         -- modText = T.intercalate (pack "\n\n") $ map defToText modtext
