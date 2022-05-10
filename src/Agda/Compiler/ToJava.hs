@@ -21,6 +21,7 @@ import Agda.Utils.Impossible (__IMPOSSIBLE__)
 import Control.Arrow ( first , second )
 import Agda.Utils.Lens
 import GHC.Tc.Utils.Instantiate (freshenCoVarBndrsX)
+import Agda.Utils.Pretty
 
 type JavaAtom = Text
 type JavaForm = Decl
@@ -42,7 +43,10 @@ makeJavaName :: QName -> ToJavaM JavaAtom
 makeJavaName n = return $ pack $ getName n
     where
         getName :: QName -> String
-        getName = show
+        getName  = getName' . qnameName
+
+        getName' :: Agda.Compiler.Backend.Name -> String
+        getName' =  prettyShow 
 
 initToJavaState :: ToJavaState
 initToJavaState = ToJavaState
@@ -198,6 +202,7 @@ toJava term texts =
         TVar n -> do
             let name = texts !! n
             [BlockStmt $ ExpStmt $ Lit $ Int $ toInteger n]
+            -- [BlockStmt $ ExpStmt $ Lit $ String $ unpack name]
         TDef qn -> []
         TApp tt tts -> []
         TLam tt -> []
