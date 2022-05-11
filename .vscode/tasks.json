@@ -9,6 +9,12 @@
   },
   "tasks": [
     {
+      "label": "setupConsole",
+      "command": "chcp.com 65001",
+      "args": [],
+      "type": "shell"
+    },
+    {
       // F7
       "group": {
         "kind": "build",

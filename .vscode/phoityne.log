@@ -35,3 +35,15 @@
 2022-05-06 21:38:45.972341800000 [$pid(ThreadId 5)] ERROR APP - [CRITICAL] can not get the initial ghci prompt.
 2022-05-06 22:01:57.398899600000 [$pid(ThreadId 4)] WARNING REQUEST - unsupported request command. {"command":"stepOut","arguments":{"threadId":0},"type":"request","seq":91}
 2022-05-09 21:37:10.529404200000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-05-10 20:02:39.057249600000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-05-10 20:34:18.587454700000 [$pid(ThreadId 5)] ERROR APP - user error (variable id:12 not found.)
+2022-05-10 20:35:07.897255600000 [$pid(ThreadId 5)] ERROR APP - user error (variable id:10 not found.)
+2022-05-10 20:36:14.482129500000 [$pid(ThreadId 5)] ERROR APP - user error (variable id:12 not found.)
+2022-05-10 20:36:17.062686700000 [$pid(ThreadId 5)] ERROR APP - user error (variable id:10 not found.)
+2022-05-11 17:36:55.451893100000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-05-11 17:37:45.536399100000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-05-11 17:41:11.436700200000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-05-11 17:43:18.360148900000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-05-11 17:43:45.567425200000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-05-11 18:07:03.890517400000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-05-11 18:19:19.545714200000 [$pid(ThreadId 4)] CRITICAL REQUEST - invalid HANDLE. eof.

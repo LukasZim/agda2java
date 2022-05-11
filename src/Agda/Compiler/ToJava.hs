@@ -9,6 +9,8 @@ import Agda.Compiler.Treeless.Erase
 import Data.Text
 import Data.Map
 import Data.Set
+
+import Agda.Syntax.Internal (ConHead(conName))
 import Control.Monad.Reader
 import qualified Agda.Utils.Pretty as P
 import qualified Data.Map as Map
@@ -26,6 +28,7 @@ import Agda.Utils.Pretty
 type JavaAtom = Text
 type JavaForm = Decl
 type JavaBlock = Block
+type JavaClass = ClassDecl
 
 buildBasicJava :: [Decl] -> CompilationUnit
 buildBasicJava xs = CompilationUnit Nothing [] [ClassTypeDecl (ClassDecl [] (Ident "Main") [] Nothing [] (ClassBody xs))]
@@ -36,7 +39,7 @@ buildMainMethod block = MemberDecl (MethodDecl [Public, Static] [] Nothing (Iden
 buildMainMethodMonad :: [Decl] -> ToJavaM CompilationUnit
 buildMainMethodMonad b = do
     -- let intermediate x = buildBasicJava  [buildMainMethod(Just x)]
-    return $ buildBasicJava  $ buildMainMethod Nothing : b
+    return $ buildBasicJava  $ buildMainMethod (Just $ Block []) : b
 
 -- doesn't work properly yet
 makeJavaName :: QName -> ToJavaM JavaAtom
@@ -46,7 +49,7 @@ makeJavaName n = return $ pack $ getName n
         getName  = getName' . qnameName
 
         getName' :: Agda.Compiler.Backend.Name -> String
-        getName' =  prettyShow 
+        getName' =  prettyShow
 
 initToJavaState :: ToJavaState
 initToJavaState = ToJavaState
@@ -148,30 +151,63 @@ defToTreeless2 def
         -- reportSDoc "toJava2" 5 $ "Compiling definition:" <> prettyTCM f
         case theDef def of
             Axiom{} -> do
+                -- liftIO do
+                --     putStrLn "AXIOM"
+                --     putStrLn $ prettyShow f
                 f' <- newJavaDef2 f 0 []
                 return Nothing
             DataOrRecSig n -> __IMPOSSIBLE__
-            GeneralizableVar -> return Nothing
+            GeneralizableVar -> do
+                liftIO do
+                    putStrLn "generealzidable var"
+                    putStrLn $ prettyShow f
+                return Nothing
             AbstractDefn de -> __IMPOSSIBLE__
-            d@Function {} | d ^. funInline -> return Nothing
-            Function cls m_cc m_st m_com cls' fi m_qns ia de m_pro set m_b
-                        m_eli m_qn
+            d@Function {} | d ^. funInline -> do
+                liftIO do
+                    putStrLn "In Line Function"
+                    putStrLn $ prettyShow f
+                return Nothing
+            Function {}
                 -> do
                     strat <- getEvaluationStrategy
                     maybeCompiled <- liftTCM $ toTreeless strat f
+                    -- liftIO do
+                    --     putStrLn "FUNCTION: "
+                    --     putStrLn $ prettyShow f
+                    --     print maybeCompiled
                     case maybeCompiled of
                         Nothing -> return Nothing
                         Just body -> do
                             let (n, body') = lambdaView body
                             f' <- newJavaDef2 f n (Prelude.take n [])
                             return $ Just (n,[], f', body')
-            Datatype n i m_cl qns so m_qns ia qns' -> return Nothing
+            Datatype {} -> do
+                liftIO do
+                    putStrLn "DATATYPE: "
+                    putStrLn $ prettyShow $ qnameName f
+                return $ Just (0, [], pack $ prettyShow $ qnameName f, TDef f)
             Record n m_cl ch b dos te m_qns ee poc m_in ia ck -> return Nothing
-            Constructor {conSrcCon = chead, conArity = nargs} -> return Nothing
+            Constructor {conSrcCon = chead, conArity = nargs} -> do
+                liftIO 
+                    do
+                        putStrLn "CONSTRUCTOR: "
+                        putStrLn $ prettyShow f
+                        putStrLn $ prettyShow chead
+                        print nargs
+                let name = conName chead
+                return $ Just (0, [], pack $ prettyShow f, TCon f)
             Primitive ia s cls fi m_cc -> do
+                -- liftIO do
+                --     putStrLn "Primitive"
+                --     putStrLn $ prettyShow f
                 f' <- newJavaDef2 f 0 []
                 return Nothing
-            PrimitiveSort s so -> return Nothing
+            PrimitiveSort s so -> do
+                -- liftIO do
+                --     putStrLn "primitiveSort"
+                --     putStrLn $ prettyShow f
+                return Nothing
 
 -- type ToJavaM x = StateT ToJavaState (ReaderT TojavaEnv TCM) x
 
@@ -222,6 +258,13 @@ javaDefine f xs body = MemberDecl $ MethodDecl [Public] [] Nothing (Ident $ unpa
     where
         createFormalType :: JavaAtom -> FormalParam
         createFormalType x = FormalParam [] (RefType (ClassRefType $ ClassType [(Ident "Object", [])])) False (VarId $ Ident $ unpack x)
+
+javaDataType :: JavaAtom -> Maybe JavaAtom -> [JavaAtom] -> JavaForm
+javaDataType name Nothing moreNames = MemberDecl $ MemberClassDecl $ ClassDecl [Abstract] (Ident $ unpack name) [] Nothing [] $ ClassBody [javaCreateConstructor name []] 
+javaDataType name (Just x) moreNames = MemberDecl $ MemberClassDecl $ ClassDecl [] (Ident $ unpack name) [] (Just $ ClassRefType $ ClassType [(Ident $ unpack x, [])]) [] $ ClassBody [javaCreateConstructor name []] 
+-- doesn't work with arguments yet
+javaCreateConstructor :: JavaAtom -> [JavaForm] -> JavaForm
+javaCreateConstructor name args = MemberDecl $ ConstructorDecl [Public] [] (Ident $ unpack name) [] [] $ ConstructorBody Nothing []
 
 -- \x -> FormalParam [] (RefType $ ClassType [(Ident "Object", [])]) False x)
 
@@ -298,25 +341,64 @@ instance ToJava2 QName (Int, [Bool], JavaAtom) where
         r <- lookupJavaDef n
         case r of
             Nothing -> fail $ "unbound name" <> show (P.pretty n)
+            Just a -> return a
 
 instance ToJava2 (Int, [Bool], JavaAtom, TTerm) JavaForm where
     toJava2 (n, bs, f, body) =
-        withFreshVars n $ \xs ->
-            javaDefine f (dropArgs bs xs) <$> toJava2 body
+        case body of
+            TDef {} ->
+                withFreshVars n $ \ xs ->
+                    return $ javaDataType f Nothing []
+            TCon {} ->
+                withFreshVars n $ \ xs ->
+                    return $ javaDataType name parent []
+                        where
+                            split :: JavaAtom -> [JavaAtom]
+                            split  = Data.Text.splitOn (pack ".") 
+
+                            lookup :: Int -> [JavaAtom] -> Maybe JavaAtom
+                            lookup _ [] = Nothing
+                            lookup 0 (x : xs) = Just x
+                            lookup i (_ : xs) = lookup (i-1) xs
+
+                            lst = split f
+                            len = Prelude.length lst
+                            name = lst !! (len - 1)
+                            parent = lookup (len - 2) lst
+
+            _ -> 
+                withFreshVars n $ \ xs ->
+                    javaDefine f (dropArgs bs xs) <$> toJava2 body
+
+        -- withFreshVars n $ \ xs ->
+        --     javaDefine f (dropArgs bs xs) <$> toJava2 body
+
+-- instance ToJava2 (Int, [Bool], JavaAtom, TTerm) JavaClass where
+
 
 instance ToJava2 TTerm JavaBlock where
     toJava2 v = case v of
         TVar n -> do
             x <- getVar n
+            -- return $ Block []
             return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show n]]
         TPrim tp -> return $ Block []
         TDef qn -> return $ Block []
         TApp tt tts -> return $ Block []
         TLam tt -> return $ Block []
         TLit lit -> return $ Block []
-        TCon qn -> return $ Block []
+        -- TCon qn -> return $ Block []
         TLet tt tt' -> return $ Block []
         TCase n ci tt tas -> return $ Block []
+        -- TPrim tp -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show tp]]
+        -- TDef qn -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show qn]]
+        -- TApp n tts -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show n]]
+        -- TLam n -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show n]]
+        -- TLit n -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show n]]
+        TCon n -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ prettyShow $ qnameName n]]
+        -- TLet n tt' -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show n]]
+        -- TCase n ci tt tas -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show n]]
+
         TUnit -> return $ Block []
         TSort -> return $ Block []
         TErased -> return $ Block []

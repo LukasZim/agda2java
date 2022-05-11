@@ -2,4 +2,9 @@ data Bool : Set where
   true : Bool
   false : Bool
 
-b = true
+not : Bool → Bool
+not true  = false
+not false = true
+
+-- bbb = true
+-- cc = false
