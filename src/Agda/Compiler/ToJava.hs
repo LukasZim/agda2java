@@ -166,10 +166,13 @@ defToTreeless2 def
             d@Function {} | d ^. funInline -> do
                 liftIO do
                     putStrLn "In Line Function"
-                    putStrLn $ prettyShow f
+                    putStrLn $ show f
                 return Nothing
-            Function {}
+            Function a b c d e ff g h i j k l m n
                 -> do
+                    liftIO do
+                        putStrLn "FUNCTION: "
+                        putStrLn $ show n
                     strat <- getEvaluationStrategy
                     maybeCompiled <- liftTCM $ toTreeless strat f
                     -- liftIO do
@@ -189,14 +192,14 @@ defToTreeless2 def
                 return $ Just (0, [], pack $ prettyShow $ qnameName f, TDef f)
             Record n m_cl ch b dos te m_qns ee poc m_in ia ck -> return Nothing
             Constructor {conSrcCon = chead, conArity = nargs} -> do
-                liftIO 
+                liftIO
                     do
                         putStrLn "CONSTRUCTOR: "
                         putStrLn $ prettyShow f
                         putStrLn $ prettyShow chead
                         print nargs
                 let name = conName chead
-                return $ Just (0, [], pack $ prettyShow f, TCon f)
+                return $ Just (0, [], pack $ prettyShow f, TDef f)
             Primitive ia s cls fi m_cc -> do
                 -- liftIO do
                 --     putStrLn "Primitive"
@@ -260,11 +263,17 @@ javaDefine f xs body = MemberDecl $ MethodDecl [Public] [] Nothing (Ident $ unpa
         createFormalType x = FormalParam [] (RefType (ClassRefType $ ClassType [(Ident "Object", [])])) False (VarId $ Ident $ unpack x)
 
 javaDataType :: JavaAtom -> Maybe JavaAtom -> [JavaAtom] -> JavaForm
-javaDataType name Nothing moreNames = MemberDecl $ MemberClassDecl $ ClassDecl [Abstract] (Ident $ unpack name) [] Nothing [] $ ClassBody [javaCreateConstructor name []] 
-javaDataType name (Just x) moreNames = MemberDecl $ MemberClassDecl $ ClassDecl [] (Ident $ unpack name) [] (Just $ ClassRefType $ ClassType [(Ident $ unpack x, [])]) [] $ ClassBody [javaCreateConstructor name []] 
+javaDataType name Nothing moreNames = MemberDecl $ MemberClassDecl $ ClassDecl [Abstract] (Ident $ unpack name) [] Nothing [] $ ClassBody [javaCreateConstructor name []]
+javaDataType name (Just x) moreNames = MemberDecl $ MemberClassDecl $ ClassDecl [] (Ident $ unpack name) [] (Just $ ClassRefType $ ClassType [(Ident $ unpack x, [])]) [] $ ClassBody [javaCreateConstructor name []]
 -- doesn't work with arguments yet
 javaCreateConstructor :: JavaAtom -> [JavaForm] -> JavaForm
 javaCreateConstructor name args = MemberDecl $ ConstructorDecl [Public] [] (Ident $ unpack name) [] [] $ ConstructorBody Nothing []
+
+javaUseConstructor :: JavaAtom -> JavaAtom -> [JavaAtom] -> JavaForm
+javaUseConstructor constructorType name args = InitDecl False $ Block [LocalVars [] (RefType javaType) [VarDecl (VarId $ Ident $ unpack name) (Just $ InitExp $ InstanceCreation [] (TypeDeclSpecifier javaClassType) [] Nothing)]]
+    where
+        javaType = ClassRefType javaClassType
+        javaClassType = ClassType[(Ident $ unpack constructorType, [])]
 
 -- \x -> FormalParam [] (RefType $ ClassType [(Ident "Object", [])]) False x)
 
@@ -343,18 +352,24 @@ instance ToJava2 QName (Int, [Bool], JavaAtom) where
             Nothing -> fail $ "unbound name" <> show (P.pretty n)
             Just a -> return a
 
+instance ToJava2 TAlt JavaBlock where
+    toJava2 alt = case alt of
+      TACon c nargs v -> withFreshVars' EagerEvaluation nargs $ \ xs -> do
+          (i, bs, c') <- toJava2 c
+          body <- toJava2 v
+          return $ Block []
+      TAGuard {} -> __IMPOSSIBLE__
+      TALit {} -> __IMPOSSIBLE__
+
 instance ToJava2 (Int, [Bool], JavaAtom, TTerm) JavaForm where
     toJava2 (n, bs, f, body) =
         case body of
             TDef {} ->
                 withFreshVars n $ \ xs ->
-                    return $ javaDataType f Nothing []
-            TCon {} ->
-                withFreshVars n $ \ xs ->
                     return $ javaDataType name parent []
                         where
                             split :: JavaAtom -> [JavaAtom]
-                            split  = Data.Text.splitOn (pack ".") 
+                            split  = Data.Text.splitOn (pack ".")
 
                             lookup :: Int -> [JavaAtom] -> Maybe JavaAtom
                             lookup _ [] = Nothing
@@ -365,10 +380,32 @@ instance ToJava2 (Int, [Bool], JavaAtom, TTerm) JavaForm where
                             len = Prelude.length lst
                             name = lst !! (len - 1)
                             parent = lookup (len - 2) lst
+            TCon c ->
+                withFreshVars n $ \ xs ->
+                    return $ javaUseConstructor (pack $ prettyShow $ qnameName c) f xs
+            TCase num caseType term alts ->
+                withFreshVars n $ \ xs ->
+                -- from caseType get the type of the return statement?
+                -- create the branches of the case statements by if expressions?
+                    javaCaseCreate f xs <$> toJava2 body
+                        where
+                            parsedType = getTypeFromCaseInfo caseType
+                            parsedAlts = Prelude.map toJava2 alts
+                            cases = Prelude.map toJava2 parsedAlts
 
-            _ -> 
+            _ ->
                 withFreshVars n $ \ xs ->
                     javaDefine f (dropArgs bs xs) <$> toJava2 body
+
+getTypeFromCaseInfo :: CaseInfo -> JavaAtom
+getTypeFromCaseInfo (CaseInfo b ct) = case ct of
+                                            CTData quan qn -> pack $ prettyShow $ qnameName qn
+                                            CTNat -> pack "float"
+                                            CTInt -> pack "int"
+                                            CTChar -> pack "char"
+                                            CTString -> pack "String"
+                                            CTFloat -> pack "float"
+                                            CTQName -> pack "CTQNameIdkHowToTranslateThis"
 
         -- withFreshVars n $ \ xs ->
         --     javaDefine f (dropArgs bs xs) <$> toJava2 body

@@ -6,5 +6,6 @@ not : Bool → Bool
 not true  = false
 not false = true
 
--- bbb = true
--- cc = false
+a = not true
+b = true
+c = false
