@@ -185,9 +185,10 @@ defToTreeless2 def
                             let (n, body') = lambdaView body
                             f' <- newJavaDef2 f n (Prelude.take n [])
                             return $ Just (n,[], f', body')
-            Datatype {} -> do
+            Datatype q w e r t y u i -> do
                 liftIO do
                     putStrLn "DATATYPE: "
+                    putStrLn $ Prelude.concatMap prettyShow r
                     putStrLn $ prettyShow $ qnameName f
                 return $ Just (0, [], pack $ prettyShow $ qnameName f, TDef f)
             Record n m_cl ch b dos te m_qns ee poc m_in ia ck -> return Nothing
@@ -383,15 +384,15 @@ instance ToJava2 (Int, [Bool], JavaAtom, TTerm) JavaForm where
             TCon c ->
                 withFreshVars n $ \ xs ->
                     return $ javaUseConstructor (pack $ prettyShow $ qnameName c) f xs
-            TCase num caseType term alts ->
-                withFreshVars n $ \ xs ->
-                -- from caseType get the type of the return statement?
-                -- create the branches of the case statements by if expressions?
-                    javaCaseCreate f xs <$> toJava2 body
-                        where
-                            parsedType = getTypeFromCaseInfo caseType
-                            parsedAlts = Prelude.map toJava2 alts
-                            cases = Prelude.map toJava2 parsedAlts
+            -- TCase num caseType term alts ->
+            --     withFreshVars n $ \ xs ->
+            --     -- from caseType get the type of the return statement?
+            --     -- create the branches of the case statements by if expressions?
+            --         javaCaseCreate f xs <$> toJava2 body
+            --             where
+            --                 parsedType = getTypeFromCaseInfo caseType
+            --                 parsedAlts = Prelude.map toJava2 alts
+            --                 cases = Prelude.map toJava2 parsedAlts
 
             _ ->
                 withFreshVars n $ \ xs ->
@@ -400,7 +401,7 @@ instance ToJava2 (Int, [Bool], JavaAtom, TTerm) JavaForm where
 getTypeFromCaseInfo :: CaseInfo -> JavaAtom
 getTypeFromCaseInfo (CaseInfo b ct) = case ct of
                                             CTData quan qn -> pack $ prettyShow $ qnameName qn
-                                            CTNat -> pack "float"
+                                            CTNat -> pack "int"
                                             CTInt -> pack "int"
                                             CTChar -> pack "char"
                                             CTString -> pack "String"

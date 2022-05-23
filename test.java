@@ -24,4 +24,16 @@ class Main
   public void not ()
   {
   }
+  public void a ()
+  {
+  }
+  {
+    true b = new true();
+  }
+  {
+    false c = new false();
+  }
+  public void tripleAnd ()
+  {
+  }
 }
