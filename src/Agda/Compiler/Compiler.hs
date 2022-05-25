@@ -79,6 +79,9 @@ javaPostModule opts _ ismain modName defs = do
     let defToText :: CompilationUnit -> Text
         defToText = T.pack . prettyPrint
         fileName = prettyShow (last $ mnameToList modName) ++ ".java"
+    liftIO do
+        buildMethodIO [] Nothing "fuckHarrie" [("object" , [], "harrie")] Nothing 
+        
 
     modText <- runToJavaM opts $ do
         ts <- catMaybes <$> traverse (defToTreeless2 . snd) defs

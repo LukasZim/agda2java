@@ -3,8 +3,13 @@ class Main
   public static void main (String[] args)
   {
   }
-  abstract class Bool
+  abstract static class Bool
   {
+    public <T> T match (Visitor<T> visitor)
+    ;
+    interface Visitor <T>
+    {
+    }
     public Bool ()
     {
     }
@@ -34,6 +39,9 @@ class Main
     false c = new false();
   }
   public void tripleAnd ()
+  {
+  }
+  public void weirdOp ()
   {
   }
 }

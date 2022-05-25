@@ -10,7 +10,11 @@ import Data.Text
 import Data.Map
 import Data.Set
 
-import Agda.Syntax.Internal (ConHead(conName))
+import Agda.Utils.Pretty (prettyShow)
+
+import Language.Java.Pretty
+
+import Agda.Syntax.Internal (ConHead(conName), Type)
 import Control.Monad.Reader
 import qualified Agda.Utils.Pretty as P
 import qualified Data.Map as Map
@@ -24,6 +28,8 @@ import Control.Arrow ( first , second )
 import Agda.Utils.Lens
 import GHC.Tc.Utils.Instantiate (freshenCoVarBndrsX)
 import Agda.Utils.Pretty
+import Agda.Compiler.MAlonzo.Pretty
+import qualified Data.Text as T
 
 type JavaAtom = Text
 type JavaForm = Decl
@@ -35,6 +41,52 @@ buildBasicJava xs = CompilationUnit Nothing [] [ClassTypeDecl (ClassDecl [] (Ide
 
 buildMainMethod :: Maybe Block -> Decl
 buildMainMethod block = MemberDecl (MethodDecl [Public, Static] [] Nothing (Ident "main") [FormalParam [] (RefType (ArrayType (RefType (ClassRefType (ClassType [(Ident "String", [])]))))) False (VarId (Ident "args"))] [] Nothing (MethodBody block))
+
+-- buildMethod :: String -> [(RefType, String)] -> Maybe Block
+buildMethodIO :: [String] -> Maybe (String, [String]) -> String -> [(String, [String], String)] -> Maybe Block -> IO Decl
+buildMethodIO typeParam maybetype name params body = do
+    liftIO do
+        -- putStrLn "buildMethod"
+        putStrLn $ Language.Java.Pretty.prettyPrint (x)
+    return x
+        where
+            x = buildMethod typeParam maybetype name params body
+
+buildMethod :: [String] -> Maybe (String, [String]) -> String -> [(String, [String], String)] -> Maybe Block ->  Decl
+buildMethod typeParam maybetype name params body = x
+    where
+        x = MemberDecl $ MethodDecl [Public] (buildTypeParams typeParam) (getReturnType maybetype) (Ident name) (buildParams params) [] Nothing (MethodBody body)
+
+        getReturnType :: Maybe (String, [String]) -> Maybe Language.Java.Syntax.Type
+        getReturnType (Just (x, y)) = Just $ buildType x y
+        getReturnType Nothing = Nothing
+
+buildTypeParams :: [String] -> [TypeParam]
+buildTypeParams = Prelude.map buildTypeParam
+
+buildTypeParam :: String -> TypeParam
+buildTypeParam str = TypeParam (Ident str) []
+
+buildParams :: [(String , [String] , String)] -> [FormalParam]
+buildParams = Prelude.map buildParam
+
+buildParam :: (String , [String] , String) -> FormalParam
+buildParam (javaType, args, name) = FormalParam [] (buildType javaType args) False (VarId $ Ident name)
+
+
+-- doesn't handle types like int / float / whatever yet, only object types for now
+buildType :: String -> [String] -> Language.Java.Syntax.Type
+buildType name typearguments = RefType $ buildRefType name typearguments
+
+buildRefType :: String -> [String] -> RefType
+buildRefType name typearguments = ClassRefType $ ClassType [(Ident name, makeTypeArguments typearguments)]
+
+makeTypeArguments :: [String] -> [TypeArgument]
+makeTypeArguments = Prelude.map makeTypeArgument
+
+makeTypeArgument :: String -> TypeArgument
+makeTypeArgument name = ActualType $ ClassRefType $ ClassType [(Ident name , [])]
+
 
 buildMainMethodMonad :: [Decl] -> ToJavaM CompilationUnit
 buildMainMethodMonad b = do
@@ -142,7 +194,7 @@ defToTreeless t def
             Constructor n i ch qn ia in' ck m_qns ifs m_bs -> (t, Nothing)
             PrimitiveSort s so -> (t, Nothing)
 
-defToTreeless2 :: Definition -> ToJavaM (Maybe (Int, [Bool], JavaAtom, TTerm))
+defToTreeless2 :: Definition -> ToJavaM (Maybe (Int, [Bool], JavaAtom, TTerm, [QName]))
 defToTreeless2 def
     | defNoCompilation def ||
     not (usableModality $ getModality def) = return Nothing
@@ -184,13 +236,13 @@ defToTreeless2 def
                         Just body -> do
                             let (n, body') = lambdaView body
                             f' <- newJavaDef2 f n (Prelude.take n [])
-                            return $ Just (n,[], f', body')
+                            return $ Just (n,[], f', body',[])
             Datatype q w e r t y u i -> do
                 liftIO do
                     putStrLn "DATATYPE: "
                     putStrLn $ Prelude.concatMap prettyShow r
                     putStrLn $ prettyShow $ qnameName f
-                return $ Just (0, [], pack $ prettyShow $ qnameName f, TDef f)
+                return $ Just (0, [], pack $ prettyShow $ qnameName f, TDef f, i)
             Record n m_cl ch b dos te m_qns ee poc m_in ia ck -> return Nothing
             Constructor {conSrcCon = chead, conArity = nargs} -> do
                 liftIO
@@ -200,7 +252,7 @@ defToTreeless2 def
                         putStrLn $ prettyShow chead
                         print nargs
                 let name = conName chead
-                return $ Just (0, [], pack $ prettyShow f, TDef f)
+                return $ Just (0, [], pack $ prettyShow f, TDef f, [])
             Primitive ia s cls fi m_cc -> do
                 -- liftIO do
                 --     putStrLn "Primitive"
@@ -264,11 +316,41 @@ javaDefine f xs body = MemberDecl $ MethodDecl [Public] [] Nothing (Ident $ unpa
         createFormalType x = FormalParam [] (RefType (ClassRefType $ ClassType [(Ident "Object", [])])) False (VarId $ Ident $ unpack x)
 
 javaDataType :: JavaAtom -> Maybe JavaAtom -> [JavaAtom] -> JavaForm
-javaDataType name Nothing moreNames = MemberDecl $ MemberClassDecl $ ClassDecl [Abstract] (Ident $ unpack name) [] Nothing [] $ ClassBody [javaCreateConstructor name []]
+javaDataType name Nothing moreNames = MemberDecl $ MemberClassDecl $
+    ClassDecl
+        [Abstract, Static]
+        (Ident $ unpack name)
+        []
+        Nothing
+        []
+        $ ClassBody [
+            buildMethod
+                ["T"]
+                (Just ("T", []))
+                "match"
+                [("Visitor", ["T"], "visitor")]
+                Nothing,
+            createVisitorInterface moreNames,
+            javaCreateConstructor name []
+            ]
 javaDataType name (Just x) moreNames = MemberDecl $ MemberClassDecl $ ClassDecl [] (Ident $ unpack name) [] (Just $ ClassRefType $ ClassType [(Ident $ unpack x, [])]) [] $ ClassBody [javaCreateConstructor name []]
 -- doesn't work with arguments yet
 javaCreateConstructor :: JavaAtom -> [JavaForm] -> JavaForm
 javaCreateConstructor name args = MemberDecl $ ConstructorDecl [Public] [] (Ident $ unpack name) [] [] $ ConstructorBody Nothing []
+
+createVisitorInterface :: [JavaAtom] -> JavaForm
+createVisitorInterface constructors = MemberDecl $ MemberInterfaceDecl $
+    InterfaceDecl
+        InterfaceNormal
+        []
+        (Ident "Visitor")
+        (buildTypeParams ["T"])
+        []
+        (InterfaceBody $ Prelude.map makeMethodFrom constructors)
+            where
+                makeMethodFrom :: JavaAtom -> MemberDecl
+                makeMethodFrom atom = MethodDecl [] [buildTypeParam "T"] Nothing (Ident $unpack atom) [] [] Nothing (MethodBody Nothing)
+
 
 javaUseConstructor :: JavaAtom -> JavaAtom -> [JavaAtom] -> JavaForm
 javaUseConstructor constructorType name args = InitDecl False $ Block [LocalVars [] (RefType javaType) [VarDecl (VarId $ Ident $ unpack name) (Just $ InitExp $ InstanceCreation [] (TypeDeclSpecifier javaClassType) [] Nothing)]]
@@ -362,12 +444,12 @@ instance ToJava2 TAlt JavaBlock where
       TAGuard {} -> __IMPOSSIBLE__
       TALit {} -> __IMPOSSIBLE__
 
-instance ToJava2 (Int, [Bool], JavaAtom, TTerm) JavaForm where
-    toJava2 (n, bs, f, body) =
+instance ToJava2 (Int, [Bool], JavaAtom, TTerm, [QName]) JavaForm where
+    toJava2 (n, bs, f, body, names) =
         case body of
             TDef {} ->
                 withFreshVars n $ \ xs ->
-                    return $ javaDataType name parent []
+                    return $ javaDataType name parent constructors
                         where
                             split :: JavaAtom -> [JavaAtom]
                             split  = Data.Text.splitOn (pack ".")
@@ -381,6 +463,8 @@ instance ToJava2 (Int, [Bool], JavaAtom, TTerm) JavaForm where
                             len = Prelude.length lst
                             name = lst !! (len - 1)
                             parent = lookup (len - 2) lst
+
+                            constructors = Prelude.map (pack . prettyShow . qnameName) names
             TCon c ->
                 withFreshVars n $ \ xs ->
                     return $ javaUseConstructor (pack $ prettyShow $ qnameName c) f xs
