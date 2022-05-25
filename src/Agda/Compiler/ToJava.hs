@@ -43,19 +43,19 @@ buildMainMethod :: Maybe Block -> Decl
 buildMainMethod block = MemberDecl (MethodDecl [Public, Static] [] Nothing (Ident "main") [FormalParam [] (RefType (ArrayType (RefType (ClassRefType (ClassType [(Ident "String", [])]))))) False (VarId (Ident "args"))] [] Nothing (MethodBody block))
 
 -- buildMethod :: String -> [(RefType, String)] -> Maybe Block
-buildMethodIO :: [String] -> Maybe (String, [String]) -> String -> [(String, [String], String)] -> Maybe Block -> IO Decl
-buildMethodIO typeParam maybetype name params body = do
+buildMethodIO :: [String] -> Maybe (String, [String]) -> String -> [(String, [String], String)] -> Maybe Block -> [Modifier] -> IO Decl
+buildMethodIO typeParam maybetype name params body modifiers = do
     liftIO do
         -- putStrLn "buildMethod"
         putStrLn $ Language.Java.Pretty.prettyPrint (x)
     return x
         where
-            x = buildMethod typeParam maybetype name params body
+            x = buildMethod typeParam maybetype name params body modifiers
 
-buildMethod :: [String] -> Maybe (String, [String]) -> String -> [(String, [String], String)] -> Maybe Block ->  Decl
-buildMethod typeParam maybetype name params body = x
+buildMethod :: [String] -> Maybe (String, [String]) -> String -> [(String, [String], String)] -> Maybe Block -> [Modifier] ->  Decl
+buildMethod typeParam maybetype name params body modifiers = x
     where
-        x = MemberDecl $ MethodDecl [Public] (buildTypeParams typeParam) (getReturnType maybetype) (Ident name) (buildParams params) [] Nothing (MethodBody body)
+        x = MemberDecl $ MethodDecl modifiers (buildTypeParams typeParam) (getReturnType maybetype) (Ident name) (buildParams params) [] Nothing (MethodBody body)
 
         getReturnType :: Maybe (String, [String]) -> Maybe Language.Java.Syntax.Type
         getReturnType (Just (x, y)) = Just $ buildType x y
@@ -242,7 +242,7 @@ defToTreeless2 def
                     putStrLn "DATATYPE: "
                     putStrLn $ Prelude.concatMap prettyShow r
                     putStrLn $ prettyShow $ qnameName f
-                return $ Just (0, [], pack $ prettyShow $ qnameName f, TDef f, i)
+                return $ Just (0, [], pack $ prettyShow $ qnameName f, TDef f, r)
             Record n m_cl ch b dos te m_qns ee poc m_in ia ck -> return Nothing
             Constructor {conSrcCon = chead, conArity = nargs} -> do
                 liftIO
@@ -329,7 +329,8 @@ javaDataType name Nothing moreNames = MemberDecl $ MemberClassDecl $
                 (Just ("T", []))
                 "match"
                 [("Visitor", ["T"], "visitor")]
-                Nothing,
+                Nothing
+                [Abstract],
             createVisitorInterface moreNames,
             javaCreateConstructor name []
             ]
@@ -349,7 +350,7 @@ createVisitorInterface constructors = MemberDecl $ MemberInterfaceDecl $
         (InterfaceBody $ Prelude.map makeMethodFrom constructors)
             where
                 makeMethodFrom :: JavaAtom -> MemberDecl
-                makeMethodFrom atom = MethodDecl [] [buildTypeParam "T"] Nothing (Ident $unpack atom) [] [] Nothing (MethodBody Nothing)
+                makeMethodFrom atom = MethodDecl [] [] (Just $ buildType "T" []) (Ident $unpack atom) [] [] Nothing (MethodBody Nothing)
 
 
 javaUseConstructor :: JavaAtom -> JavaAtom -> [JavaAtom] -> JavaForm

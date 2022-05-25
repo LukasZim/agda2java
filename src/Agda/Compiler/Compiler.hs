@@ -12,7 +12,7 @@ import Data.Text (Text, pack, unpack)
 import Control.Monad.IO.Class
 import Agda.Utils.Pretty (prettyShow)
 import Agda.Compiler.ToJava
-import Language.Java.Syntax (CompilationUnit, Block (Block))
+import Language.Java.Syntax (CompilationUnit, Block (Block), Modifier (Public))
 import Data.Maybe
 
 
@@ -80,7 +80,7 @@ javaPostModule opts _ ismain modName defs = do
         defToText = T.pack . prettyPrint
         fileName = prettyShow (last $ mnameToList modName) ++ ".java"
     liftIO do
-        buildMethodIO [] Nothing "fuckHarrie" [("object" , [], "harrie")] Nothing 
+        buildMethodIO [] Nothing "fuckHarrie" [("object" , [], "harrie")] Nothing [Public]
         
 
     modText <- runToJavaM opts $ do

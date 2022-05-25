@@ -5,10 +5,14 @@ class Main
   }
   abstract static class Bool
   {
-    public <T> T match (Visitor<T> visitor)
+    abstract <T> T match (Visitor<T> visitor)
     ;
     interface Visitor <T>
     {
+      T true ()
+      ;
+      T false ()
+      ;
     }
     public Bool ()
     {
