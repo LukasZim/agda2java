@@ -9,43 +9,59 @@ class Main
     ;
     interface Visitor <T>
     {
-      T true ()
+      T True ()
       ;
-      T false ()
+      T False ()
       ;
     }
     public Bool ()
     {
     }
   }
-  class true extends Bool
+  static class True extends Bool
   {
-    public true ()
+    public True ()
     {
     }
-  }
-  class false extends Bool
-  {
-    public false ()
+    <T> T match (Visitor<T> visitor)
     {
+      return visitor.True();
     }
   }
-  public void not ()
+  static class False extends Bool
   {
+    public False ()
+    {
+    }
+    <T> T match (Visitor<T> visitor)
+    {
+      return visitor.False();
+    }
+  }
+  public void not (Object d)
+  {
+    return b.match(new Bool.Visitor<>()
+                   {
+                     public Bool True ()
+                     {
+                       return new False();
+                     }
+                     public Bool False ()
+                     {
+                       return new True();
+                     }
+                   });
   }
   public void a ()
   {
   }
   {
-    true b = new true();
+    True b = new True();
   }
   {
-    false c = new false();
+    False c = new False();
   }
-  public void tripleAnd ()
-  {
-  }
-  public void weirdOp ()
+  public void tripleAnd (Object e, Object f, Object g)
   {
   }
 }

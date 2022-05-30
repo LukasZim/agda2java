@@ -51,3 +51,11 @@
 2022-05-23 22:12:52.665418300000 [$pid(ThreadId 5)] ERROR APP - user error (<getModule> loaded module can not find from path. <c:\Users\Lukas\Documents\Universiteit\2021_2022\Q4\kanker\agda2java\src\Agda\Compiler\ToJava.hs> [("Agda.Compiler.Options","C:\\Users\\Lukas\\Documents\\Universiteit\\2021_2022\\Q4\\kanker\\agda2java\\src\\Agda\\Compiler\\Options.hs"),("Agda.Compiler.Syntax","C:\\Users\\Lukas\\Documents\\Universiteit\\2021_2022\\Q4\\kanker\\agda2java\\src\\Agda\\Compiler\\Syntax.hs")])
 2022-05-23 22:12:52.695455900000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
 2022-05-23 22:17:10.486265000000 [$pid(ThreadId 4)] CRITICAL REQUEST - invalid HANDLE. eof.
+2022-05-27 21:19:50.900532400000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-05-27 21:19:50.932069700000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-05-27 21:19:53.229229700000 [$pid(ThreadId 5)] ERROR APP - user error (ExecResult not found.)
+2022-05-28 17:07:08.213391100000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-05-29 16:30:27.509802800000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-05-29 16:30:27.539809600000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-05-29 16:30:30.046148100000 [$pid(ThreadId 5)] ERROR APP - user error (ExecResult not found.)
+2022-05-29 16:43:38.871198300000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"

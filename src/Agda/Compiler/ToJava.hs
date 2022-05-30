@@ -224,7 +224,7 @@ defToTreeless2 def
                 -> do
                     liftIO do
                         putStrLn "FUNCTION: "
-                        putStrLn $ show n
+                        putStrLn $ Agda.Compiler.MAlonzo.Pretty.prettyPrint $ qnameName f
                     strat <- getEvaluationStrategy
                     maybeCompiled <- liftTCM $ toTreeless strat f
                     -- liftIO do
@@ -254,15 +254,9 @@ defToTreeless2 def
                 let name = conName chead
                 return $ Just (0, [], pack $ prettyShow f, TDef f, [])
             Primitive ia s cls fi m_cc -> do
-                -- liftIO do
-                --     putStrLn "Primitive"
-                --     putStrLn $ prettyShow f
                 f' <- newJavaDef2 f 0 []
                 return Nothing
             PrimitiveSort s so -> do
-                -- liftIO do
-                --     putStrLn "primitiveSort"
-                --     putStrLn $ prettyShow f
                 return Nothing
 
 -- type ToJavaM x = StateT ToJavaState (ReaderT TojavaEnv TCM) x
@@ -316,6 +310,7 @@ javaDefine f xs body = MemberDecl $ MethodDecl [Public] [] Nothing (Ident $ unpa
         createFormalType x = FormalParam [] (RefType (ClassRefType $ ClassType [(Ident "Object", [])])) False (VarId $ Ident $ unpack x)
 
 javaDataType :: JavaAtom -> Maybe JavaAtom -> [JavaAtom] -> JavaForm
+-- Datatype
 javaDataType name Nothing moreNames = MemberDecl $ MemberClassDecl $
     ClassDecl
         [Abstract, Static]
@@ -334,7 +329,26 @@ javaDataType name Nothing moreNames = MemberDecl $ MemberClassDecl $
             createVisitorInterface moreNames,
             javaCreateConstructor name []
             ]
-javaDataType name (Just x) moreNames = MemberDecl $ MemberClassDecl $ ClassDecl [] (Ident $ unpack name) [] (Just $ ClassRefType $ ClassType [(Ident $ unpack x, [])]) [] $ ClassBody [javaCreateConstructor name []]
+-- For the constructor types
+javaDataType name (Just x) moreNames = MemberDecl $ MemberClassDecl $
+    ClassDecl
+        [Static]
+        (Ident $ unpack name)
+        []
+        (Just $ ClassRefType $ ClassType [(Ident $ unpack x, [])])
+        []
+        (ClassBody [
+            javaCreateConstructor name [],
+            buildMethod
+                ["T"]
+                (Just ("T", []))
+                "match"
+                [("Visitor", ["T"], "visitor")]
+                (Just $ Block [
+                    BlockStmt $ Return (Just $ MethodInv $ PrimaryMethodCall (ExpName $ Language.Java.Syntax.Name [Ident "visitor"]) [] (Ident $ unpack name) [] )
+                ])
+                []
+        ])
 -- doesn't work with arguments yet
 javaCreateConstructor :: JavaAtom -> [JavaForm] -> JavaForm
 javaCreateConstructor name args = MemberDecl $ ConstructorDecl [Public] [] (Ident $ unpack name) [] [] $ ConstructorBody Nothing []
@@ -358,6 +372,14 @@ javaUseConstructor constructorType name args = InitDecl False $ Block [LocalVars
     where
         javaType = ClassRefType javaClassType
         javaClassType = ClassType[(Ident $ unpack constructorType, [])]
+
+javaCaseCreate :: JavaAtom -> [JavaAtom] -> [JavaForm] -> Maybe JavaBlock -> JavaForm
+javaCaseCreate str strings asdf block = buildMethod [] Nothing (unpack str) []  block [Public]
+
+--                  name
+-- javaCreateMatch :: JavaAtom -> [JavaForm] -> JavaForm
+-- javaCreateMatch name instances = 
+
 
 -- \x -> FormalParam [] (RefType $ ClassType [(Ident "Object", [])]) False x)
 
@@ -436,12 +458,20 @@ instance ToJava2 QName (Int, [Bool], JavaAtom) where
             Nothing -> fail $ "unbound name" <> show (P.pretty n)
             Just a -> return a
 
-instance ToJava2 TAlt JavaBlock where
-    toJava2 alt = case alt of
+instance ToJava2 (TAlt, JavaAtom) JavaForm where
+    toJava2 (alt, typeInfo) = case alt of
       TACon c nargs v -> withFreshVars' EagerEvaluation nargs $ \ xs -> do
-          (i, bs, c') <- toJava2 c
-          body <- toJava2 v
-          return $ Block []
+        --   (i, bs, c') <- toJava2 c
+            body <- toJava2 v
+        --   return $ MemberDecl $ FieldDecl [] (buildType (prettyShow $ qnameName c) []) [VarDecl (VarId $ Ident "test") Nothing]
+            return $ buildMethod
+                []
+                (Just (unpack typeInfo, []))
+                (prettyShow $ qnameName c)
+                []
+                (Just body)
+                [Public]
+
       TAGuard {} -> __IMPOSSIBLE__
       TALit {} -> __IMPOSSIBLE__
 
@@ -469,19 +499,48 @@ instance ToJava2 (Int, [Bool], JavaAtom, TTerm, [QName]) JavaForm where
             TCon c ->
                 withFreshVars n $ \ xs ->
                     return $ javaUseConstructor (pack $ prettyShow $ qnameName c) f xs
-            -- TCase num caseType term alts ->
-            --     withFreshVars n $ \ xs ->
-            --     -- from caseType get the type of the return statement?
-            --     -- create the branches of the case statements by if expressions?
-            --         javaCaseCreate f xs <$> toJava2 body
-            --             where
-            --                 parsedType = getTypeFromCaseInfo caseType
-            --                 parsedAlts = Prelude.map toJava2 alts
-            --                 cases = Prelude.map toJava2 parsedAlts
+
+
+
+
+                -- withFreshVars n $ \ xs ->
+                -- -- from caseType get the type of the return statement?
+                -- -- create the branches of the case statements by if expressions?
+                --     let x = num
+                --         y = caseType
+                --         z = term
+                --         zz = alts in
+                --     do
+                --         x <-  Prelude.map toJava2 (Prelude.zip alts (createListOfLen alts parsedType))
+                --         return x
+                --     javaCaseCreate f xs parsedAlts2 qwer
+                --         where
+                --             qwer =toJava2 body
+                --             parsedType = getTypeFromCaseInfo caseType
+                --             parsedAlts = sequence $ Prelude.zipWith (curry toJava2) alts (createListOfLen alts parsedType)
+                --             parsedAlts2 = Prelude.map toJava2 (Prelude.zip alts (createListOfLen alts parsedType))
+                --                 where
+                --                     createListOfLen :: [a] -> JavaAtom -> [JavaAtom]
+                --                     createListOfLen [] a = []
+                --                     createListOfLen (x : xs) a = a : createListOfLen xs a
+
+                                    -- asdf :: ToJavaM a -> a
+                                    -- asdf (toJava2 x) = x
+
+                            -- cases = Prelude.map toJava2 (return parsedAlts)
 
             _ ->
-                withFreshVars n $ \ xs ->
-                    javaDefine f (dropArgs bs xs) <$> toJava2 body
+                withFreshVars n $ \ xs ->do
+                    liftIO do
+                        print "function something"
+                        putStrLn $ show xs
+                        print f
+                    -- javaDefine f (dropArgs bs xs) <$> toJava2 body
+                    javaDefine f xs <$> toJava2 body
+
+data SpecialCase = BoolCase
+isSpecialCase :: CaseInfo -> ToJavaM (Maybe SpecialCase)
+isSpecialCase _ = return Nothing
 
 getTypeFromCaseInfo :: CaseInfo -> JavaAtom
 getTypeFromCaseInfo (CaseInfo b ct) = case ct of
@@ -491,7 +550,7 @@ getTypeFromCaseInfo (CaseInfo b ct) = case ct of
                                             CTChar -> pack "char"
                                             CTString -> pack "String"
                                             CTFloat -> pack "float"
-                                            CTQName -> pack "CTQNameIdkHowToTranslateThis"
+                                            CTQName -> pack "CTQNameIdkHowToTranslateThisStringIGuess"
 
         -- withFreshVars n $ \ xs ->
         --     javaDefine f (dropArgs bs xs) <$> toJava2 body
@@ -502,9 +561,11 @@ getTypeFromCaseInfo (CaseInfo b ct) = case ct of
 instance ToJava2 TTerm JavaBlock where
     toJava2 v = case v of
         TVar n -> do
+            liftIO do
+                putStrLn "TVar"
             x <- getVar n
-            -- return $ Block []
-            return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show n]]
+            return x
+            -- return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show n]]
         TPrim tp -> return $ Block []
         TDef qn -> return $ Block []
         TApp tt tts -> return $ Block []
@@ -512,13 +573,57 @@ instance ToJava2 TTerm JavaBlock where
         TLit lit -> return $ Block []
         -- TCon qn -> return $ Block []
         TLet tt tt' -> return $ Block []
-        TCase n ci tt tas -> return $ Block []
+        TCase num caseType term alts -> do
+                special <- isSpecialCase caseType
+                case special of
+                    -- Nothing | [TACon c nargs v] <- alts -> do
+                    --     withFreshVars' EagerEvaluation nargs $ \xs -> do
+                    --         let parsedType = getTypeFromCaseInfo caseType
+                    --         y <- mapM toJava2 (Prelude.zip alts (createListOfLen alts parsedType))
+                    --         -- x <-  Prelude.zipWith (curry toJava2) alts (createListOfLen alts parsedType)
+                    --         -- return $ javaUseConstructor (pack $ prettyShow $ qnameName c) f xs
+                    --         return $ javaCaseCreate f [parsedType] y Nothing
+                    --             where
+                    --                 createListOfLen :: [a] -> JavaAtom -> [JavaAtom]
+                    --                 createListOfLen [] a = []
+                    --                 createListOfLen (x : xs) a = a : createListOfLen xs a
+                    Nothing -> do
+                        withFreshVars' EagerEvaluation 0 $ \xs -> do
+                            let parsedType = getTypeFromCaseInfo caseType
+                            y <- mapM toJava2 (Prelude.zip alts (createListOfLen alts parsedType))
+                            -- x <-  Prelude.zipWith (curry toJava2) alts (createListOfLen alts parsedType)
+                            -- return $ javaUseConstructor (pack $ prettyShow $ qnameName c) f xs
+                            -- return $ javaCaseCreate f [] y Nothing
+                            return $ Block [BlockStmt $ Return (Just $ MethodInv $ PrimaryMethodCall (ExpName $ Language.Java.Syntax.Name [Ident "b"]) [] (Ident "match") [
+                                    InstanceCreation
+                                        []
+                                        (TypeDeclSpecifier $ ClassType [(Ident $ unpack parsedType ++ ".Visitor", [makeTypeArgument ""])])
+                                        []
+                                        (Just $ ClassBody y)
+                                ] )]
+                                where
+                                    createListOfLen :: [a] -> JavaAtom -> [JavaAtom]
+                                    createListOfLen [] a = []
+                                    createListOfLen (x : xs) a = a : createListOfLen xs a
+                    Just BoolCase -> __IMPOSSIBLE__
         -- TPrim tp -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show tp]]
         -- TDef qn -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show qn]]
         -- TApp n tts -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show n]]
         -- TLam n -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show n]]
         -- TLit n -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show n]]
-        TCon n -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ prettyShow $ qnameName n]]
+        -- TCon n -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ prettyShow $ qnameName n]]
+        TCon n -> do
+            return $ Block [
+                BlockStmt $ 
+                    Return (
+                        Just $ 
+                            InstanceCreation 
+                                [] 
+                                (TypeDeclSpecifier $ ClassType [(Ident $ prettyShow $ qnameName n, [])]) 
+                                [] 
+                                Nothing
+                        )
+                ]
         -- TLet n tt' -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show n]]
         -- TCase n ci tt tas -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ show n]]
 

@@ -1,22 +1,27 @@
 data Bool : Set where
-  true : Bool
-  false : Bool
+  True : Bool
+  False : Bool
 
 not : Bool → Bool
-not true  = false
-not false = true
+not True  = False
+not False = True
 
-a = not true
-b = true
-c = false
+-- postulate A : Set
+
+-- id : A → A
+-- id x = x
+
+a = not True
+b = True
+c = False
 
 tripleAnd : Bool → Bool → Bool → Bool
-tripleAnd true true true = true
-tripleAnd _ _ _ = false
+tripleAnd True True True = True
+tripleAnd _ _ _ = False
 
-weirdOp : Bool -> Bool -> Bool -> Bool
-weirdOp true _ true = true
-weirdOp true false false = true
-weirdOp false true true = true
-weirdOp false false true = true
-weirdOp _ _ _ = false
+-- weirdOp : Bool -> Bool -> Bool -> Bool
+-- weirdOp True _ true = true
+-- weirdOp true false false = true
+-- weirdOp false true true = true
+-- weirdOp false false true = true
+-- weirdOp _ _ _ = false
