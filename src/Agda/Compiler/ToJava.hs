@@ -303,8 +303,8 @@ toJava term texts =
         TError te -> []
         _ -> []
 
-javaDefine :: JavaAtom -> [JavaAtom] -> JavaBlock -> JavaForm
-javaDefine f xs body = MemberDecl $ MethodDecl [Public] [] Nothing (Ident $ unpack f) (Prelude.map createFormalType xs) [] Nothing (MethodBody $ Just body)
+javaDefine :: JavaAtom -> [JavaAtom] -> JavaAtom -> JavaBlock -> JavaForm
+javaDefine f xs typeName body = MemberDecl $ MethodDecl [Public] [] (Just $ buildType (unpack typeName) []) (Ident $ unpack f) (Prelude.map createFormalType xs) [] Nothing (MethodBody $ Just body)
     where
         createFormalType :: JavaAtom -> FormalParam
         createFormalType x = FormalParam [] (RefType (ClassRefType $ ClassType [(Ident "Object", [])])) False (VarId $ Ident $ unpack x)
@@ -533,10 +533,34 @@ instance ToJava2 (Int, [Bool], JavaAtom, TTerm, [QName]) JavaForm where
                 withFreshVars n $ \ xs ->do
                     liftIO do
                         print "function something"
-                        putStrLn $ show xs
+                        print xs
+                        print n
+                        print bs
+                        print names
                         print f
+                    let returnType = getType body
                     -- javaDefine f (dropArgs bs xs) <$> toJava2 body
-                    javaDefine f xs <$> toJava2 body
+                    javaDefine f xs returnType <$> toJava2 body
+
+
+getType :: TTerm -> JavaAtom 
+getType tterm = case tterm of
+  TVar n -> __IMPOSSIBLE__ 
+  TPrim tp -> __IMPOSSIBLE__ 
+  TDef qn -> __IMPOSSIBLE__ 
+  TApp tt tts -> __IMPOSSIBLE__ 
+  TLam tt -> __IMPOSSIBLE__ 
+  TLit lit -> __IMPOSSIBLE__ 
+  TCon qn -> __IMPOSSIBLE__ 
+  TLet tt tt' -> __IMPOSSIBLE__ 
+  TCase n ci tt tas -> getTypeFromCaseInfo ci
+  TUnit -> __IMPOSSIBLE__ 
+  TSort -> __IMPOSSIBLE__ 
+  TErased -> __IMPOSSIBLE__ 
+  TCoerce tt -> __IMPOSSIBLE__ 
+  TError te -> __IMPOSSIBLE__ 
+
+
 
 data SpecialCase = BoolCase
 isSpecialCase :: CaseInfo -> ToJavaM (Maybe SpecialCase)
@@ -614,13 +638,13 @@ instance ToJava2 TTerm JavaBlock where
         -- TCon n -> return $ Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident $ prettyShow $ qnameName n]]
         TCon n -> do
             return $ Block [
-                BlockStmt $ 
+                BlockStmt $
                     Return (
-                        Just $ 
-                            InstanceCreation 
-                                [] 
-                                (TypeDeclSpecifier $ ClassType [(Ident $ prettyShow $ qnameName n, [])]) 
-                                [] 
+                        Just $
+                            InstanceCreation
+                                []
+                                (TypeDeclSpecifier $ ClassType [(Ident $ prettyShow $ qnameName n, [])])
+                                []
                                 Nothing
                         )
                 ]

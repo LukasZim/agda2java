@@ -38,7 +38,7 @@ class Main
       return visitor.False();
     }
   }
-  public void not (Object d)
+  public Bool not (Object a)
   {
     return b.match(new Bool.Visitor<>()
                    {
@@ -51,17 +51,5 @@ class Main
                        return new True();
                      }
                    });
-  }
-  public void a ()
-  {
-  }
-  {
-    True b = new True();
-  }
-  {
-    False c = new False();
-  }
-  public void tripleAnd (Object e, Object f, Object g)
-  {
   }
 }

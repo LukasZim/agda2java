@@ -11,13 +11,13 @@ not False = True
 -- id : A → A
 -- id x = x
 
-a = not True
-b = True
-c = False
+-- a = not True
+-- b = True
+-- c = False
 
-tripleAnd : Bool → Bool → Bool → Bool
-tripleAnd True True True = True
-tripleAnd _ _ _ = False
+-- tripleAnd : Bool → Bool → Bool → Bool
+-- tripleAnd True True True = True
+-- tripleAnd _ _ _ = False
 
 -- weirdOp : Bool -> Bool -> Bool -> Bool
 -- weirdOp True _ true = true
