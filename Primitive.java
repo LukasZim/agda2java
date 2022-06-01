@@ -19,6 +19,7 @@ class AgdaFunctionImpl implements AgdaFunction {
         return fn;
     }
 }
+
 class Main
 {
   public static void main (String[] args)

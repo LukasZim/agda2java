@@ -1,10 +1,10 @@
-data Bool : Set where
-  True : Bool
-  False : Bool
+-- data Bool : Set where
+--   True : Bool
+--   False : Bool
 
-not : Bool → Bool
-not True  = False
-not False = True
+-- not : Bool → Bool
+-- not True  = False
+-- not False = True
 
 data Nat : Set where
   zero : Nat
@@ -19,13 +19,13 @@ halve _ = zero
 -- id : A → A
 -- id x = x
 
-a = not True
-b = True
-c = False
+-- a = not True
+-- b = True
+-- c = False
 
-tripleAnd : Bool → Bool → Bool → Bool
-tripleAnd True True True = True
-tripleAnd _ _ _ = False
+-- tripleAnd : Bool → Bool → Bool → Bool
+-- tripleAnd True True True = True
+-- tripleAnd _ _ _ = False
 
 -- weirdOp : Bool -> Bool -> Bool -> Bool
 -- weirdOp True _ true = true

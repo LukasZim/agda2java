@@ -101,7 +101,7 @@ javaPostModule opts _ ismain modName defs = do
     
         
     modText <- runToJavaM opts $ do
-        ts <- catMaybes <$> traverse (defToTreeless2 . snd) defs
+        ts <- catMaybes <$> traverse (defToTreeless . snd) defs
         ds <- traverse toJava2 ts
         whole <- buildMainMethodMonad ds
         return $ defToText whole
