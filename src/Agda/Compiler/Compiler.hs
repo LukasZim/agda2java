@@ -79,6 +79,25 @@ javaPostModule opts _ ismain modName defs = do
     let defToText :: CompilationUnit -> Text
         defToText = T.pack . prettyPrint
         fileName = prettyShow (last $ mnameToList modName) ++ ".java"
+        preamble = pack "\
+        \interface Visitor {}\n\n\
+        \interface Agda {}\n\n\
+        \interface AgdaData extends Agda {\n\
+        \    Agda match(Visitor visitor);\n\
+        \}\n\n\
+        \interface AgdaFunction extends Agda{\n\
+        \    Visitor getFn();\n\
+        \}\n\n\
+        \class AgdaFunctionImpl implements AgdaFunction {\n\
+        \    private Visitor fn;\n\
+        \    public AgdaFunctionImpl(Visitor fn) {\n\
+        \        this.fn = fn;\n\
+        \    }\n\
+        \    public Visitor getFn() {\n\
+        \        return fn;\n\
+        \    }\n\
+        \}\n\n\
+        \"
     
         
     modText <- runToJavaM opts $ do
@@ -87,7 +106,7 @@ javaPostModule opts _ ismain modName defs = do
         whole <- buildMainMethodMonad ds
         return $ defToText whole
 
-    liftIO $ T.writeFile fileName modText
+    liftIO $ T.writeFile fileName (preamble <> modText)
     -- let defToText = T.pack prettyPrint
     --     fileName = prettyShow (last $ mnameToList modName) ++ ".java"
 

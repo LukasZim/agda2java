@@ -6,6 +6,14 @@ not : Bool → Bool
 not True  = False
 not False = True
 
+data Nat : Set where
+  zero : Nat
+  suc : Nat -> Nat
+
+halve : Nat -> Nat
+halve (suc (suc n)) = suc (halve n)
+halve _ = zero
+
 -- postulate A : Set
 
 -- id : A → A
