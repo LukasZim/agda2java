@@ -60,3 +60,5 @@
 2022-05-29 16:30:30.046148100000 [$pid(ThreadId 5)] ERROR APP - user error (ExecResult not found.)
 2022-05-29 16:43:38.871198300000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
 2022-06-01 20:43:16.075660700000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-06-02 23:52:05.344163800000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-06-02 23:52:19.177735000000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"

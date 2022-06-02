@@ -7,7 +7,7 @@ import Agda.Compiler.Backend
       toTreeless,
       funInline,
       Name (nameBindingSite),
-      QName(qnameName),
+      QName(qnameName, QName),
       CaseInfo(CaseInfo),
       CaseType(CTQName, CTData, CTNat, CTInt, CTChar, CTString, CTFloat),
       TAlt(TALit, TACon, TAGuard),
@@ -18,7 +18,7 @@ import Agda.Compiler.Backend
            conSrcCon, conArity, dataCons, recFields, recConHead),
       MonadTCM(liftTCM),
       TCM,
-      HasConstInfo(getConstInfo), tAppView )
+      HasConstInfo(getConstInfo), tAppView, qnameToList )
 import Agda.Syntax.Common
 import Control.Monad.State
 import Language.Java.Syntax
@@ -26,7 +26,7 @@ import Agda.Compiler.Treeless.Erase
 import Data.Text
 import Data.Map
 import Data.Set
-
+import Agda.Utils.List1
 import Agda.Utils.Pretty (prettyShow)
 
 import Language.Java.Pretty
@@ -50,24 +50,27 @@ import qualified Data.Text as T
 import Data.Char
 import Agda.Compiler.Treeless.EliminateLiteralPatterns (eliminateLiteralPatterns)
 import Agda.Compiler.Treeless.GuardsToPrims (convertGuards)
-import Agda.Compiler.ToJavaBackup (javaDataType)
+import qualified Data.Foldable as Map
+-- import Agda.Compiler.ToJavaBackup (javaDataType, JavaAtom)
 
 type JavaAtom = Text
 type JavaForm = Decl
 type JavaBlock = BlockStmt
 type JavaClass = ClassDecl
 
-type JavaStmt = BlockStmt
+type JavaStmt = Decl
 type JavaExp = Exp
 
 type ToJavaM a = StateT ToJavaState (ReaderT ToJavaEnv TCM) a
 
 data ToJavaCon = ToJavaCon JavaAtom Int Bool
-data ToJavaDef = ToJavaDef JavaAtom Int [Bool]
+data ToJavaFun = ToJavaFun JavaAtom Int [Bool]
+data ToJavaDef = ToJavaDef JavaAtom Int [(String, Int)] JavaAtom
 
 initToJavaState :: ToJavaState
 initToJavaState = ToJavaState
     {   toJavaFresh = freshVars
+        , toJavaFuns = Map.empty
         , toJavaDefs = Map.empty
         , toJavaCons = Map.empty
         , toJavaUsedNames = reservedNames
@@ -76,6 +79,7 @@ initToJavaState = ToJavaState
 data ToJavaState = ToJavaState
     {
     toJavaFresh :: [JavaAtom]
+    , toJavaFuns :: Map QName ToJavaFun
     , toJavaDefs :: Map QName ToJavaDef
     , toJavaCons :: Map QName ToJavaCon
     , toJavaUsedNames :: Set JavaAtom
@@ -92,10 +96,10 @@ freshVars = Prelude.concat [ Prelude.map (<> i) xs | i <- pack "":Prelude.map (p
     where
         xs = Prelude.map Data.Text.singleton ['a' .. 'z']
 
-buildMainMethodMonad :: [BlockStmt] -> ToJavaM CompilationUnit
+buildMainMethodMonad :: [JavaStmt] -> ToJavaM CompilationUnit
 buildMainMethodMonad b = do
     -- let intermediate x = buildBasicJava  [buildMainMethod(Just x)]
-    return $ buildBasicJava  [buildMainMethod (Just $ Block [])]
+    return $ buildBasicJava (buildMainMethod (Just $ Block []) : b)
 
 buildBasicJava :: [Decl] -> CompilationUnit
 buildBasicJava xs = CompilationUnit Nothing [] [ClassTypeDecl (ClassDecl [] (Ident "Main") [] Nothing [] (ClassBody xs))]
@@ -143,8 +147,8 @@ defToTreeless def
                 case maybeCompiled of
                     Just body -> do
                         let (n, body') = lambdaView body
-                        f' <- newJavaDef f n (Prelude.take n (repeat False))
-                        return $ Just (n, Prelude.take n (repeat False), f', body', [])
+                        f' <- newJavaFun f n (Prelude.take n (Prelude.repeat False))
+                        return $ Just (n, Prelude.take n (Prelude.repeat False), f', body', [])
                     Nothing -> return Nothing
             Primitive {} -> do
                 f' <- newJavaDef f 0 []
@@ -155,19 +159,40 @@ defToTreeless def
                 forM_ cs $ \c -> do
                     cdef <- theDef <$> getConstInfo c
                     case cdef of
-                        Constructor { conSrcCon = chead, conArity = nargs } -> processCon chead nargs eraseTag
+                        Constructor { conSrcCon = chead, conArity = nargs } -> do
+                            f' <- newJavaDef f 0 []
+                            void $ processCon chead nargs eraseTag f
+                            -- addJavaConToDatatype f name nargs
                         _ -> __IMPOSSIBLE__
+
+                liftIO do
+                    print "asdfasdfsdfhasdlfkasdjl;"
+                    print cs
+
                 return Nothing
-            Record{ recConHead = chead, recFields = fs } -> do
-                processCon chead (Prelude.length fs) True
-                return Nothing
+            -- Record{ recConHead = chead, recFields = fs } -> do
+            --     processCon chead (Prelude.length fs) True
+            --     return Nothing
+            Record {} -> __IMPOSSIBLE__
             Constructor{} -> return Nothing
             AbstractDefn{} -> __IMPOSSIBLE__
             DataOrRecSig{} -> __IMPOSSIBLE__
             where
-                processCon :: ConHead -> Int -> Bool -> ToJavaM ()
-                processCon chead nargs b = do
-                    void $ newJavaCon (conName chead) nargs b
+                processCon :: ConHead -> Int -> Bool -> QName -> ToJavaM JavaAtom
+                processCon chead nargs b dataname= do
+                    x <- newJavaCon (conName chead) nargs b
+                    addJavaCon (unpack x, nargs) dataname
+                    -- (x, nargs)
+                    return  x
+
+                -- getInfo :: QName ->  (String, Int)
+                -- getInfo name = do
+                --     c <- getConstInfo name
+                --     case c of
+                --         -- Constructor n i ch qn ia in' ck m_qns ifs m_bs ->  (show $qnameName name, n)
+                --         -- _ -> __IMPOSSIBLE__
+                --     -- return c
+
 
 
 newJavaCon :: QName -> Int -> Bool -> ToJavaM JavaAtom
@@ -177,15 +202,41 @@ newJavaCon n i b = do
     setNameUsed a
     return a
 
-newJavaDef :: QName -> Int -> [Bool] -> ToJavaM JavaAtom
+newJavaDef :: QName -> Int -> [(String, Int)] -> ToJavaM JavaAtom
 newJavaDef n i bs = do
     a <- makeJavaName n
-    setJavaDef n (ToJavaDef a i bs)
+    b <- makeVisitorName $ unpack a Prelude.++ "Visitor"
+
+    setJavaDef n (ToJavaDef a i bs b)
+    setNameUsed a
+    return a
+
+newJavaFun :: QName -> Int -> [Bool] -> ToJavaM JavaAtom
+newJavaFun n i bs = do
+    a <- makeJavaName n
+    setJavaFun n (ToJavaFun a i bs)
     setNameUsed a
     return a
 
 makeJavaName :: QName -> ToJavaM JavaAtom
 makeJavaName n = go $ fixName $ prettyShow $ qnameName n
+    where
+        nextName = ('z':)
+        go s = ifM (isNameUsed $ T.pack s) (go $ nextName s) (return $ T.pack s)
+
+        fixName s =
+            let s' = Prelude.concat (Prelude.map fixChar s) in
+                if isNumber (Prelude.head s') then "z" ++ s' else s'
+
+        fixChar c
+            | isValidJavaChar c = [c]
+            | otherwise         = "\\x" ++ toHex (ord c) ++ ";"
+
+        toHex 0 = ""
+        toHex i = toHex (i `div` 16) ++ [fourBitsToChar (i `mod` 16)]
+
+makeVisitorName :: String -> ToJavaM JavaAtom
+makeVisitorName n = go $ fixName $ show n
     where
         nextName = ('z':)
         go s = ifM (isNameUsed $ T.pack s) (go $ nextName s) (return $ T.pack s)
@@ -207,7 +258,7 @@ isValidJavaChar x
     | otherwise = False
 
 fourBitsToChar :: Int -> Char
-fourBitsToChar i = "0123456789ABCDEF" !! i
+fourBitsToChar i = "0123456789ABCDEF" Prelude.!! i
 {-# INLINE fourBitsToChar #-}
 
 isNameUsed :: JavaAtom -> ToJavaM Bool
@@ -217,9 +268,52 @@ setJavaDef :: QName -> ToJavaDef -> ToJavaM ()
 setJavaDef n def = do
     modify $ \s -> s {toJavaDefs = Map.insert n def (toJavaDefs s)}
 
+setJavaFun :: QName -> ToJavaFun -> ToJavaM ()
+setJavaFun n def = do
+    modify $ \s -> s {toJavaFuns = Map.insert n def (toJavaFuns s)}
+
 setJavaCon :: QName -> ToJavaCon -> ToJavaM ()
 setJavaCon n con = do
     modify $ \s -> s {toJavaCons = Map.insert n con (toJavaCons s)}
+
+
+addJavaCon :: (String, Int) -> QName -> ToJavaM ()
+addJavaCon n name = do
+    modify (addConstructor n name)
+    where
+        addConstructor :: (String, Int) -> QName -> ToJavaState -> ToJavaState
+        addConstructor (str, num) name s = do
+            let m = toJavaDefs s
+                (n , newMap) = Map.updateLookupWithKey f name m
+            s {toJavaDefs = newMap}
+            where
+                f :: QName -> ToJavaDef -> Maybe ToJavaDef
+                f key value = if key == name 
+                    then (case value of { ToJavaDef txt i x0 visitor -> Just $ ToJavaDef txt i ((str, num) : x0) visitor}
+                    )
+                    else Nothing
+
+
+
+-- addToDef :: (String, Int) -> QName -> Map QName ToJavaDef -> Map QName ToJavaDef
+-- addToDef c name oldMap = newMap
+--     where
+--         newMap = insertWith fun c name oldMap
+--             where
+--                 fun :: ToJavaDef -> (String, Int) -> ToJavaDef
+--                 fun (ToJavaDef a b c) x = ToJavaDef a b (x : c)
+
+-- addJavaConToDatatype :: QName -> JavaAtom -> Int -> ToJavaM ()
+-- addJavaConToDatatype dname cname args = do
+--     modify $ \s -> s {toJavaDefs = do
+--         x <- Map.lookup dname (toJavaDefs s)
+--         case x of { ToJavaDef txt n x1 -> do
+--                 let newMap = mapMaybe
+--             }
+
+--         }
+
+
 
 setNameUsed :: JavaAtom -> ToJavaM ()
 setNameUsed x = modify \s ->
@@ -236,11 +330,11 @@ lambdaView v = case v of
   _         -> (0, v)
 
 
-javaDefine :: JavaAtom -> [JavaAtom] -> JavaExp -> JavaStmt
-javaDefine name arguments body = LocalVars [] (RefType $ ClassRefType $ ClassType [(Ident "var", [])])
-    [
-        VarDecl (VarId $ Ident $ T.unpack name) (Just $ InitExp body)
-    ]
+-- javaDefine :: JavaAtom -> [JavaAtom] -> JavaExp -> JavaStmt
+-- javaDefine name arguments body = LocalVars [] (RefType $ ClassRefType $ ClassType [(Ident "var", [])])
+--     [
+--         VarDecl (VarId $ Ident $ T.unpack name) (Just $ InitExp body)
+--     ]
 
 lookupJavaDef :: QName -> ToJavaM ToJavaDef
 lookupJavaDef n = do
@@ -252,28 +346,44 @@ lookupJavaDef n = do
 -- javaDataType :: JavaAtom -> Maybe JavaAtom -> [JavaAtom] -> JavaForm
 -- javaDataType 
 
-instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) JavaStmt where
+instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) [JavaStmt] where
     toJava (n, bs, f, body, names) = case body of
         TDef d ->  do
-            ToJavaDef d' i bs <- lookupJavaDef d
-            return $ BlockStmt Empty
-
-        -- TCon c ->withFreshVars n $ \ xs ->
-        --             return $ javaUseConstructor (pack $ prettyShow $ qnameName c) f xs
-
-        _ ->    withFreshVars n $ \ xs ->do
-                    liftIO do
-                        print "function something"
-                        putStrLn $ show xs
-                        print f
-                    -- javaDefine f (dropArgs bs xs) <$> toJava2 body
-                    javaDefine f xs <$> toJava body
-
-        -- withFreshVars n $ \xs ->
-        --     javaDefine f xs <$> toJava body
+            ToJavaDef d' i bs visitor <- lookupJavaDef d
+            return $ buildJavaDefinition d' i bs visitor
+            -- return $ BlockStmt Empty
+        _ -> __IMPOSSIBLE__
+        -- _ ->    withFreshVars n $ \ xs ->do
+        --             liftIO do
+        --                 print "function something"
+        --                 putStrLn $ show xs
+        --                 print f
+        --             javaDefine f xs <$> toJava body
 
 instance ToJava TTerm JavaBlock where
     toJava n = __IMPOSSIBLE__
+
+
+buildJavaDefinition :: JavaAtom -> Int -> [(String, Int)] -> JavaAtom -> [JavaStmt]
+buildJavaDefinition name nargs consNames visitorName = [buildJavaVisitor visitorName consNames, buildJavaAbstractClass name]
+
+
+buildJavaVisitor :: JavaAtom -> [(String, Int)] -> JavaStmt
+buildJavaVisitor name constructors = MemberDecl $ MemberInterfaceDecl $ InterfaceDecl InterfaceNormal [] (Ident $unpack name) [] [ClassRefType $ ClassType [(Ident "Visitor" , [])]] (InterfaceBody $ Prelude.map buildMethod constructors)
+    where
+        buildMethod :: (String, Int) -> MemberDecl
+        buildMethod (name, nargs) = MethodDecl [] [] (Just $ RefType $ClassRefType$ ClassType [(Ident "Agda", [])]) (Ident name) (buildParams nargs) [] Nothing (MethodBody Nothing)
+        
+        buildParams :: Int -> [FormalParam]
+        buildParams 0 = []
+        buildParams n = FormalParam [] (RefType $ ClassRefType $ ClassType [(Ident "Agda", [])]) False (VarId $ Ident ("arg" ++ show n)): buildParams (n - 1)
+    
+buildJavaAbstractClass :: JavaAtom -> JavaStmt
+buildJavaAbstractClass name = MemberDecl $ MemberClassDecl $ ClassDecl [Abstract, Static] (Ident $ unpack name) [] (Just $ ClassRefType $ ClassType [(Ident "AgdaData", [])]) [] (ClassBody [])
+    -- build visitor
+    -- build the static class
+
+
 
 
 javaApps :: JavaBlock -> [JavaBlock] -> JavaBlock
@@ -281,7 +391,7 @@ javaApps :: JavaBlock -> [JavaBlock] -> JavaBlock
 javaApps f args = Prelude.foldl (\x y -> x) f args
 
 getVar :: Int -> ToJavaM JavaBlock
-getVar i = reader $ (!! i) . toJavaVars
+getVar i = reader $ (Prelude.!! i) . toJavaVars
 
 makeDelay :: ToJavaM (JavaExp -> JavaExp)
 makeDelay = delayIfLazy <$> getEvaluationStrategy

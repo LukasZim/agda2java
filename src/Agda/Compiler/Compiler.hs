@@ -1,19 +1,29 @@
 module Agda.Compiler.Compiler where
 import Agda.Compiler.Backend
-import Agda.Compiler.Options
+    ( EvaluationStrategy(EagerEvaluation),
+      Backend(..),
+      Backend'(..),
+      Recompile(Recompile),
+      IsMain,
+      Flag,
+      ModuleName(mnameToList),
+      Definition,
+      TCM )
+import Agda.Compiler.Options ( JavaOptions(JavaOptions) )
 import Agda.Compiler.Syntax (JavaEntry, JavaModule)
 import Agda.Interaction.Options (OptDescr)
 import Agda.Compiler.Common (compileDir)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import Language.Java.Pretty
+import Language.Java.Pretty ( prettyPrint )
 
 import Data.Text (Text, pack, unpack)
-import Control.Monad.IO.Class
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import Agda.Utils.Pretty (prettyShow)
 import Agda.Compiler.ToJava
+    ( ToJava(toJava), buildMainMethodMonad, runToJavaM, defToTreeless )
 import Language.Java.Syntax (CompilationUnit, Block (Block), Modifier (Public))
-import Data.Maybe
+import Data.Maybe ( catMaybes )
 
 
 test :: String
@@ -103,7 +113,7 @@ javaPostModule opts _ ismain modName defs = do
     modText <- runToJavaM opts $ do
         ts <- catMaybes <$> traverse (defToTreeless . snd) defs
         ds <- traverse toJava ts
-        whole <- buildMainMethodMonad ds
+        whole <- buildMainMethodMonad $ concat ds
         return $ defToText whole
 
     liftIO $ T.writeFile fileName (preamble <> modText)
