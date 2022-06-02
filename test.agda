@@ -1,18 +1,18 @@
--- data Bool : Set where
---   True : Bool
---   False : Bool
+data Bool : Set where
+  True : Bool
+  False : Bool
 
--- not : Bool → Bool
--- not True  = False
--- not False = True
+not : Bool → Bool
+not True  = False
+not False = True
 
-data Nat : Set where
-  zero : Nat
-  suc : Nat -> Nat
+-- data Nat : Set where
+--   zero : Nat
+--   suc : Nat -> Nat
 
-halve : Nat -> Nat
-halve (suc (suc n)) = suc (halve n)
-halve _ = zero
+-- halve : Nat -> Nat
+-- halve (suc (suc n)) = suc (halve n)
+-- halve _ = zero
 
 -- postulate A : Set
 

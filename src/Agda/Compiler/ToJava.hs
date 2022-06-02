@@ -6,7 +6,7 @@ import Agda.Compiler.Backend
     ( EvaluationStrategy(EagerEvaluation),
       toTreeless,
       funInline,
-      Name,
+      Name (nameBindingSite),
       QName(qnameName),
       CaseInfo(CaseInfo),
       CaseType(CTQName, CTData, CTNat, CTInt, CTChar, CTString, CTFloat),
@@ -18,7 +18,7 @@ import Agda.Compiler.Backend
            conSrcCon, conArity, dataCons, recFields, recConHead),
       MonadTCM(liftTCM),
       TCM,
-      HasConstInfo(getConstInfo) )
+      HasConstInfo(getConstInfo), tAppView )
 import Agda.Syntax.Common
 import Control.Monad.State
 import Language.Java.Syntax
@@ -48,11 +48,17 @@ import Agda.Utils.Pretty
 import Agda.Compiler.MAlonzo.Pretty
 import qualified Data.Text as T
 import Data.Char
+import Agda.Compiler.Treeless.EliminateLiteralPatterns (eliminateLiteralPatterns)
+import Agda.Compiler.Treeless.GuardsToPrims (convertGuards)
+import Agda.Compiler.ToJavaBackup (javaDataType)
 
 type JavaAtom = Text
 type JavaForm = Decl
-type JavaBlock = Block
+type JavaBlock = BlockStmt
 type JavaClass = ClassDecl
+
+type JavaStmt = BlockStmt
+type JavaExp = Exp
 
 type ToJavaM a = StateT ToJavaState (ReaderT ToJavaEnv TCM) a
 
@@ -85,6 +91,18 @@ freshVars :: [JavaAtom]
 freshVars = Prelude.concat [ Prelude.map (<> i) xs | i <- pack "":Prelude.map (pack . show) [1..]]
     where
         xs = Prelude.map Data.Text.singleton ['a' .. 'z']
+
+buildMainMethodMonad :: [BlockStmt] -> ToJavaM CompilationUnit
+buildMainMethodMonad b = do
+    -- let intermediate x = buildBasicJava  [buildMainMethod(Just x)]
+    return $ buildBasicJava  [buildMainMethod (Just $ Block [])]
+
+buildBasicJava :: [Decl] -> CompilationUnit
+buildBasicJava xs = CompilationUnit Nothing [] [ClassTypeDecl (ClassDecl [] (Ident "Main") [] Nothing [] (ClassBody xs))]
+
+buildMainMethod :: Maybe Block -> Decl
+buildMainMethod block = MemberDecl (MethodDecl [Public, Static] [] Nothing (Ident "main") [FormalParam [] (RefType (ArrayType (RefType (ClassRefType (ClassType [(Ident "String", [])]))))) False (VarId (Ident "args"))] [] Nothing (MethodBody block))
+
 
 reservedNames :: Set JavaAtom
 reservedNames = Set.fromList $ Prelude.map pack
@@ -175,7 +193,7 @@ makeJavaName n = go $ fixName $ prettyShow $ qnameName n
         fixName s =
             let s' = Prelude.concat (Prelude.map fixChar s) in
                 if isNumber (Prelude.head s') then "z" ++ s' else s'
-        
+
         fixChar c
             | isValidJavaChar c = [c]
             | otherwise         = "\\x" ++ toHex (ord c) ++ ";"
@@ -184,7 +202,7 @@ makeJavaName n = go $ fixName $ prettyShow $ qnameName n
         toHex i = toHex (i `div` 16) ++ [fourBitsToChar (i `mod` 16)]
 
 isValidJavaChar :: Char -> Bool
-isValidJavaChar x 
+isValidJavaChar x
     | isAscii x = isAlphaNum x
     | otherwise = False
 
@@ -201,7 +219,7 @@ setJavaDef n def = do
 
 setJavaCon :: QName -> ToJavaCon -> ToJavaM ()
 setJavaCon n con = do
-    modify $ \s -> s {toJavaCons = Map.insert n con (toJavaCons s)}    
+    modify $ \s -> s {toJavaCons = Map.insert n con (toJavaCons s)}
 
 setNameUsed :: JavaAtom -> ToJavaM ()
 setNameUsed x = modify \s ->
@@ -218,10 +236,59 @@ lambdaView v = case v of
   _         -> (0, v)
 
 
-instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) JavaForm where
-    toJava (n, bs, f, body, names) = 
-        withFreshVars n $ \xs ->
-            javaDefine f xs <$> toJava body
+javaDefine :: JavaAtom -> [JavaAtom] -> JavaExp -> JavaStmt
+javaDefine name arguments body = LocalVars [] (RefType $ ClassRefType $ ClassType [(Ident "var", [])])
+    [
+        VarDecl (VarId $ Ident $ T.unpack name) (Just $ InitExp body)
+    ]
+
+lookupJavaDef :: QName -> ToJavaM ToJavaDef
+lookupJavaDef n = do
+    r <- Map.lookup n <$> gets toJavaDefs
+    case r of
+        Nothing -> fail "couldn't find definition"
+        Just a -> return a
+
+-- javaDataType :: JavaAtom -> Maybe JavaAtom -> [JavaAtom] -> JavaForm
+-- javaDataType 
+
+instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) JavaStmt where
+    toJava (n, bs, f, body, names) = case body of
+        TDef d ->  do
+            ToJavaDef d' i bs <- lookupJavaDef d
+            return $ BlockStmt Empty
+
+        -- TCon c ->withFreshVars n $ \ xs ->
+        --             return $ javaUseConstructor (pack $ prettyShow $ qnameName c) f xs
+
+        _ ->    withFreshVars n $ \ xs ->do
+                    liftIO do
+                        print "function something"
+                        putStrLn $ show xs
+                        print f
+                    -- javaDefine f (dropArgs bs xs) <$> toJava2 body
+                    javaDefine f xs <$> toJava body
+
+        -- withFreshVars n $ \xs ->
+        --     javaDefine f xs <$> toJava body
+
+instance ToJava TTerm JavaBlock where
+    toJava n = __IMPOSSIBLE__
+
+
+javaApps :: JavaBlock -> [JavaBlock] -> JavaBlock
+-- build this : ((AgdaData) b1).match(andF);
+javaApps f args = Prelude.foldl (\x y -> x) f args
+
+getVar :: Int -> ToJavaM JavaBlock
+getVar i = reader $ (!! i) . toJavaVars
+
+makeDelay :: ToJavaM (JavaExp -> JavaExp)
+makeDelay = delayIfLazy <$> getEvaluationStrategy
+
+delayIfLazy :: EvaluationStrategy -> JavaExp -> JavaExp
+delayIfLazy strat = id
+
 
 class ToJava a b | a -> b where
     toJava :: a -> ToJavaM b
@@ -244,7 +311,7 @@ withFreshVar f = do
 withFreshVar' :: EvaluationStrategy -> (JavaAtom -> ToJavaM a) -> ToJavaM a
 withFreshVar' strat f = do
     x <- freshJavaAtom
-    local (addBinding $ forceIfLazy strat (Block [BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident (unpack x)]])) $ f x
+    local (addBinding $ forceIfLazy strat BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident (unpack x)]) $ f x
 
 forceIfLazy :: EvaluationStrategy -> a -> a
 forceIfLazy strat = id
