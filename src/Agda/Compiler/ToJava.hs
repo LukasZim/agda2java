@@ -170,7 +170,12 @@ defToTreeless def
             --     processCon chead (Prelude.length fs) True
             --     return Nothing
             Record {} -> __IMPOSSIBLE__
-            Constructor{} -> return Nothing
+            
+            -- vgm hoef je hiero niiks te returnen omdat het al gedaan wordt in datatype
+            -- daarom kan je dus ook de constructors maken in de  method die de datatype maakt in
+            -- tojava zegmaaar, misschine ook niet want mijn brein loopt momenteel mijn neus uit
+            -- en ik wil momenteel even niet bestaan ha ha ha hi ha hondenlul
+            Constructor{} -> return Nothing 
             AbstractDefn{} -> __IMPOSSIBLE__
             DataOrRecSig{} -> __IMPOSSIBLE__
             where
@@ -284,28 +289,6 @@ f x key value = case value of { ToJavaDef txt i xs visitor -> ToJavaDef txt i (x
 
 
 
-addConstructor :: (String, Int) -> QName -> ToJavaState -> ToJavaState
-addConstructor (str, num) name s = s {toJavaDefs = Map.adjustWithKey (f (str, num) ) name (toJavaDefs s)}
--- addToDef :: (String, Int) -> QName -> Map QName ToJavaDef -> Map QName ToJavaDef
--- addToDef c name oldMap = newMap
---     where
---         newMap = insertWith fun c name oldMap
---             where
---                 fun :: ToJavaDef -> (String, Int) -> ToJavaDef
---                 fun (ToJavaDef a b c) x = ToJavaDef a b (x : c)
-
--- addJavaConToDatatype :: QName -> JavaAtom -> Int -> ToJavaM ()
--- addJavaConToDatatype dname cname args = do
---     modify $ \s -> s {toJavaDefs = do
---         x <- Map.lookup dname (toJavaDefs s)
---         case x of { ToJavaDef txt n x1 -> do
---                 let newMap = mapMaybe
---             }
-
---         }
-
-
-
 setNameUsed :: JavaAtom -> ToJavaM ()
 setNameUsed x = modify \s ->
     s {toJavaUsedNames = Set.insert x (toJavaUsedNames s)}
@@ -321,12 +304,6 @@ lambdaView v = case v of
   _         -> (0, v)
 
 
--- javaDefine :: JavaAtom -> [JavaAtom] -> JavaExp -> JavaStmt
--- javaDefine name arguments body = LocalVars [] (RefType $ ClassRefType $ ClassType [(Ident "var", [])])
---     [
---         VarDecl (VarId $ Ident $ T.unpack name) (Just $ InitExp body)
---     ]
-
 lookupJavaDef :: QName -> ToJavaM ToJavaDef
 lookupJavaDef n = do
     let defs = gets toJavaDefs
@@ -335,12 +312,13 @@ lookupJavaDef n = do
         Nothing -> fail "couldn't find definition"
         Just a -> return a
 
--- javaDataType :: JavaAtom -> Maybe JavaAtom -> [JavaAtom] -> JavaForm
--- javaDataType 
+
 
 instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) [JavaStmt] where
     toJava (n, bs, f, body, names) = case body of
         TDef d ->  do
+            --hier zou je oook de constructors dierct kunnen maken
+            -- vgm kan je op 1of andere manier een lookup doen?
             ToJavaDef d' i bs visitor <- lookupJavaDef d
             return $ buildJavaDefinition d' i bs visitor
             -- return $ BlockStmt Empty

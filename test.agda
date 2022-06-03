@@ -1,11 +1,10 @@
 data Bool : Set where
   True : Bool
   False : Bool
-  XD : Bool -> Bool
 
--- not : Bool → Bool
--- not True  = False
--- not False = True
+not : Bool → Bool
+not True  = False
+not False = True
 
 -- data Nat : Set where
 --   zero : Nat
