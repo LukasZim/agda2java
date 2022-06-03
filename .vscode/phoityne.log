@@ -62,3 +62,27 @@
 2022-06-01 20:43:16.075660700000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
 2022-06-02 23:52:05.344163800000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
 2022-06-02 23:52:19.177735000000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-06-03 00:17:31.217888800000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 00:17:31.248897400000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 00:17:35.649531400000 [$pid(ThreadId 5)] ERROR APP - user error (ExecResult not found.)
+2022-06-03 00:18:06.576795900000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 00:18:06.591799400000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 00:18:08.641523500000 [$pid(ThreadId 5)] ERROR APP - user error (ExecResult not found.)
+2022-06-03 00:20:33.740293200000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-06-03 00:28:59.892649300000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 00:28:59.908653100000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 00:29:02.069658700000 [$pid(ThreadId 5)] ERROR APP - user error (ExecResult not found.)
+2022-06-03 00:58:38.713412400000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 00:58:38.761431000000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 00:58:41.551432300000 [$pid(ThreadId 5)] ERROR APP - user error (ExecResult not found.)
+2022-06-03 01:00:40.589924800000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 01:00:40.651199000000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 01:04:42.775195200000 [$pid(ThreadId 5)] ERROR APP - user error (ExecResult not found.)
+2022-06-03 01:13:28.973922600000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 01:13:28.989925600000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 01:13:30.097902300000 [$pid(ThreadId 5)] ERROR APP - user error (ExecResult not found.)
+2022-06-03 01:15:47.949713700000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 01:15:47.965716800000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 01:40:16.726896000000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 01:40:16.741899700000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
+2022-06-03 01:40:19.162082000000 [$pid(ThreadId 5)] ERROR APP - user error (ExecResult not found.)

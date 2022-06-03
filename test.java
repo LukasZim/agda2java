@@ -25,4 +25,16 @@ class Main
   public static void main (String[] args)
   {
   }
+  interface BoolVisitor extends Visitor
+  {
+    Agda XD (Agda arg1)
+    ;
+    Agda False ()
+    ;
+    Agda True ()
+    ;
+  }
+  abstract static class Bool extends AgdaData
+  {
+  }
 }
