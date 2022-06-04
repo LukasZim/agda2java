@@ -2,9 +2,16 @@ data Bool : Set where
   True : Bool
   False : Bool
 
+data Nat : Set where
+  zero : Nat
+  suc : Nat -> Nat
+
 not : Bool → Bool
 not True  = False
 not False = True
+
+-- id : Bool -> Bool
+-- id x = x
 
 -- data Nat : Set where
 --   zero : Nat

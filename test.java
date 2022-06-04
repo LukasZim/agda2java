@@ -27,14 +27,22 @@ class Main
   }
   interface BoolVisitor extends Visitor
   {
-    Agda XD (Agda arg1)
-    ;
     Agda False ()
     ;
     Agda True ()
     ;
   }
   abstract static class Bool extends AgdaData
+  {
+  }
+  interface NatVisitor extends Visitor
+  {
+    Agda suc (Agda arg1)
+    ;
+    Agda zero ()
+    ;
+  }
+  abstract static class Nat extends AgdaData
   {
   }
 }

@@ -1,0 +1,6 @@
+resolver: nightly-2022-03-26
+compiler: ghc-9.2.2
+compiler-check: match-exact
+
+packages:
+- '.'

@@ -31,7 +31,7 @@ import Agda.Utils.Pretty (prettyShow)
 
 import Language.Java.Pretty
 
-import Agda.Syntax.Internal (ConHead(conName), Type)
+import Agda.Syntax.Internal (ConHead(conName), Type, Term (Var))
 import Control.Monad.Reader
 import qualified Agda.Utils.Pretty as P
 import qualified Data.Map as Map
@@ -141,7 +141,10 @@ defToTreeless def
                 return Nothing
             GeneralizableVar{} -> return Nothing
             d@Function{} | d ^. funInline -> return Nothing
-            Function {} -> do
+            d@Function {} -> do
+                liftIO do
+                    putStrLn $ Agda.Compiler.MAlonzo.Pretty.prettyPrint $ qnameName f
+                    -- print d
                 strat <- getEvaluationStrategy
                 maybeCompiled <- liftTCM $ toTreeless strat f
                 case maybeCompiled of
@@ -170,12 +173,12 @@ defToTreeless def
             --     processCon chead (Prelude.length fs) True
             --     return Nothing
             Record {} -> __IMPOSSIBLE__
-            
+
             -- vgm hoef je hiero niiks te returnen omdat het al gedaan wordt in datatype
             -- daarom kan je dus ook de constructors maken in de  method die de datatype maakt in
             -- tojava zegmaaar, misschine ook niet want mijn brein loopt momenteel mijn neus uit
             -- en ik wil momenteel even niet bestaan ha ha ha hi ha hondenlul
-            Constructor{} -> return Nothing 
+            Constructor{} -> return Nothing
             AbstractDefn{} -> __IMPOSSIBLE__
             DataOrRecSig{} -> __IMPOSSIBLE__
             where
@@ -320,6 +323,7 @@ instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) [JavaStmt] where
             --hier zou je oook de constructors dierct kunnen maken
             -- vgm kan je op 1of andere manier een lookup doen?
             ToJavaDef d' i bs visitor <- lookupJavaDef d
+            constructors <- mapM toJava bs
             return $ buildJavaDefinition d' i bs visitor
             -- return $ BlockStmt Empty
         _ -> __IMPOSSIBLE__
@@ -333,6 +337,50 @@ instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) [JavaStmt] where
 instance ToJava TTerm JavaBlock where
     toJava n = __IMPOSSIBLE__
 
+instance ToJava (JavaAtom , (String, Int)) JavaStmt where
+    toJava (datatype, (name, nargs)) = return $ buildJavaConstructor datatype (name, nargs)
+
+buildJavaConstructor :: JavaAtom -> (String, Int) -> JavaStmt
+buildJavaConstructor datatype (name , nargs) = MemberDecl $ MemberClassDecl $
+    ClassDecl
+        [Static]
+        (Ident name)
+        []
+        (Just $ ClassRefType $ ClassType [(Ident $ unpack datatype, [])])
+        []
+        (ClassBody [])
+
+typeAgda :: Language.Java.Syntax.Type
+typeAgda = RefType $ ClassRefType $ ClassType [(Ident "Agda", [])]
+
+buildClassBody :: (String, Int) -> [JavaStmt]
+buildClassBody (name, nargs) = buildPrivateFields nargs ++ [buildConstructorConstructor name nargs, (buildMatchFunction)]
+    where
+        buildPrivateFields :: Int -> [JavaStmt]
+        buildPrivateFields 0 = []
+        buildPrivateFields n = MemberDecl (
+            FieldDecl
+                [Private, Final]
+                (RefType $ ClassRefType $ ClassType [(Ident "Agda", [])])
+                [VarDecl (VarId $ Ident ("arg" ++ show n)) Nothing]) : buildPrivateFields (n - 1)
+
+        buildConstructorConstructor :: String -> Int -> JavaStmt
+        buildConstructorConstructor name n = MemberDecl $
+            ConstructorDecl
+                [Public]
+                []
+                (Ident name)
+                (buildParams n)
+                []
+                (ConstructorBody Nothing (buildConstructorBody n))
+
+        buildConstructorBody :: Int -> [BlockStmt]
+        buildConstructorBody 0 = []
+        buildConstructorBody n = BlockStmt (ExpStmt $ Assign (FieldLhs $ PrimaryFieldAccess This (Ident $ "arg" ++ show n)) EqualA (ExpName $ Name [Ident $"arg" ++ show n])) : buildConstructorBody (n - 1)
+
+        buildParams :: Int -> [FormalParam]
+        buildParams 0 = []
+        buildParams n = FormalParam [] typeAgda False (VarId $ Ident ("arg" + show n)) : buildParams (n - 1)
 
 buildJavaDefinition :: JavaAtom -> Int -> [(String, Int)] -> JavaAtom -> [JavaStmt]
 buildJavaDefinition name nargs consNames visitorName = [buildJavaVisitor visitorName consNames, buildJavaAbstractClass name]
