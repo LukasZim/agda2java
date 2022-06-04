@@ -323,8 +323,8 @@ instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) [JavaStmt] where
             --hier zou je oook de constructors dierct kunnen maken
             -- vgm kan je op 1of andere manier een lookup doen?
             ToJavaDef d' i bs visitor <- lookupJavaDef d
-            constructors <- mapM toJava bs
-            return $ buildJavaDefinition d' i bs visitor
+            constructors <- mapM toJava (Prelude.zip (Prelude.replicate (Prelude.length bs) (d', visitor)) bs)
+            return $ buildJavaDefinition d' i bs visitor ++ constructors
             -- return $ BlockStmt Empty
         _ -> __IMPOSSIBLE__
         -- _ ->    withFreshVars n $ \ xs ->do
@@ -337,25 +337,51 @@ instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) [JavaStmt] where
 instance ToJava TTerm JavaBlock where
     toJava n = __IMPOSSIBLE__
 
-instance ToJava (JavaAtom , (String, Int)) JavaStmt where
-    toJava (datatype, (name, nargs)) = return $ buildJavaConstructor datatype (name, nargs)
+instance ToJava ((JavaAtom, JavaAtom) , (String, Int)) JavaStmt where
+    toJava ((datatype, visitor), (name, nargs)) = do
+        return $ buildJavaConstructor datatype visitor (name, nargs)
 
-buildJavaConstructor :: JavaAtom -> (String, Int) -> JavaStmt
-buildJavaConstructor datatype (name , nargs) = MemberDecl $ MemberClassDecl $
+buildJavaConstructor :: JavaAtom -> JavaAtom -> (String, Int) -> JavaStmt
+buildJavaConstructor datatype visitorName (name , nargs) = MemberDecl $ MemberClassDecl $
     ClassDecl
         [Static]
         (Ident name)
         []
         (Just $ ClassRefType $ ClassType [(Ident $ unpack datatype, [])])
         []
-        (ClassBody [])
+        (ClassBody (buildClassBody visitorName (name, nargs)))
 
 typeAgda :: Language.Java.Syntax.Type
 typeAgda = RefType $ ClassRefType $ ClassType [(Ident "Agda", [])]
 
-buildClassBody :: (String, Int) -> [JavaStmt]
-buildClassBody (name, nargs) = buildPrivateFields nargs ++ [buildConstructorConstructor name nargs, (buildMatchFunction)]
+makeType :: String -> Language.Java.Syntax.Type
+makeType name = RefType $ ClassRefType $ ClassType [(Ident name, [])]
+
+
+buildClassBody :: JavaAtom -> (String, Int) -> [JavaStmt]
+buildClassBody visitorName (name, nargs) = buildPrivateFields nargs ++ [buildConstructorConstructor name nargs, buildMatchFunction name visitorName nargs]
     where
+        buildMatchFunction :: String -> JavaAtom -> Int -> JavaStmt
+        buildMatchFunction consName visitorName nargs = MemberDecl $
+            MethodDecl
+                [Public]
+                []
+                (Just typeAgda)
+                (Ident "match")
+                [FormalParam [] (RefType $ ClassRefType $ ClassType [(Ident "Visitor", [])]) False (VarId $ Ident "visitor")]
+                []
+                Nothing
+                (MethodBody (Just $ Block [
+                    BlockStmt $ Return (
+                    -- return ((NatVisitor)visitor).suc(arg0);
+                        Just $ MethodInv $ PrimaryMethodCall (Cast (makeType $unpack  visitorName) (ExpName (Name [Ident "visitor"])) ) [] (Ident consName) (buildArgs nargs)
+                    )
+                ]))
+
+        buildArgs :: Int -> [Argument]
+        buildArgs 0 = []
+        buildArgs n = ExpName ( Name [Ident $ "arg" ++ show n]) : buildArgs (n - 1)
+
         buildPrivateFields :: Int -> [JavaStmt]
         buildPrivateFields 0 = []
         buildPrivateFields n = MemberDecl (
@@ -380,7 +406,7 @@ buildClassBody (name, nargs) = buildPrivateFields nargs ++ [buildConstructorCons
 
         buildParams :: Int -> [FormalParam]
         buildParams 0 = []
-        buildParams n = FormalParam [] typeAgda False (VarId $ Ident ("arg" + show n)) : buildParams (n - 1)
+        buildParams n = FormalParam [] typeAgda False (VarId $ Ident ("arg" ++ show n)) : buildParams (n - 1)
 
 buildJavaDefinition :: JavaAtom -> Int -> [(String, Int)] -> JavaAtom -> [JavaStmt]
 buildJavaDefinition name nargs consNames visitorName = [buildJavaVisitor visitorName consNames, buildJavaAbstractClass name]

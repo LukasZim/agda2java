@@ -35,6 +35,26 @@ class Main
   abstract static class Bool extends AgdaData
   {
   }
+  static class False extends Bool
+  {
+    public False ()
+    {
+    }
+    public Agda match (Visitor visitor)
+    {
+      return ((BoolVisitor) visitor).False();
+    }
+  }
+  static class True extends Bool
+  {
+    public True ()
+    {
+    }
+    public Agda match (Visitor visitor)
+    {
+      return ((BoolVisitor) visitor).True();
+    }
+  }
   interface NatVisitor extends Visitor
   {
     Agda suc (Agda arg1)
@@ -44,5 +64,27 @@ class Main
   }
   abstract static class Nat extends AgdaData
   {
+  }
+  static class suc extends Nat
+  {
+    private final Agda arg1;
+    public suc (Agda arg1)
+    {
+      this.arg1 = arg1;
+    }
+    public Agda match (Visitor visitor)
+    {
+      return ((NatVisitor) visitor).suc(arg1);
+    }
+  }
+  static class zero extends Nat
+  {
+    public zero ()
+    {
+    }
+    public Agda match (Visitor visitor)
+    {
+      return ((NatVisitor) visitor).zero();
+    }
   }
 }
