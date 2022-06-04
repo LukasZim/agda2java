@@ -425,7 +425,7 @@ buildJavaVisitor name constructors = MemberDecl $ MemberInterfaceDecl $ Interfac
         buildParams n = FormalParam [] (RefType $ ClassRefType $ ClassType [(Ident "Agda", [])]) False (VarId $ Ident ("arg" ++ show n)): buildParams (n - 1)
 
 buildJavaAbstractClass :: JavaAtom -> JavaStmt
-buildJavaAbstractClass name = MemberDecl $ MemberClassDecl $ ClassDecl [Abstract, Static] (Ident $ unpack name) [] (Just $ ClassRefType $ ClassType [(Ident "AgdaData", [])]) [] (ClassBody [])
+buildJavaAbstractClass name = MemberDecl $ MemberClassDecl $ ClassDecl [Abstract, Static] (Ident $ unpack name) [] Nothing [ClassRefType $ ClassType [(Ident "AgdaData", [])]] (ClassBody [])
     -- build visitor
     -- build the static class
 

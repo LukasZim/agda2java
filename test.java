@@ -32,7 +32,7 @@ class Main
     Agda True ()
     ;
   }
-  abstract static class Bool extends AgdaData
+  abstract static class Bool implements AgdaData
   {
   }
   static class False extends Bool
@@ -62,7 +62,7 @@ class Main
     Agda zero ()
     ;
   }
-  abstract static class Nat extends AgdaData
+  abstract static class Nat implements AgdaData
   {
   }
   static class suc extends Nat
