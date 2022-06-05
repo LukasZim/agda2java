@@ -28,6 +28,15 @@ class Main
 {
   public static void main (String[] args)
   {
+    AgdaLambda not = (AgdaLambda) a -> {
+                                         ;
+                                       };
+    AgdaLambda and = (AgdaLambda) b -> (AgdaLambda) c -> {
+                                                           ;
+                                                         };
+    AgdaLambda id = (AgdaLambda) d -> {
+                                        ;
+                                      };
   }
   public static Agda runFunction (Agda arg, AgdaLambda l)
   {
@@ -94,17 +103,5 @@ class Main
     {
       return ((NatVisitor) visitor).zero();
     }
-  }
-  public static void main (String[] args)
-  {
-    AgdaLambda not = (AgdaLambda) a -> {
-                                         ;
-                                       };
-  }
-  public static void main (String[] args)
-  {
-    AgdaLambda and = (AgdaLambda) b -> (AgdaLambda) c -> {
-                                                           ;
-                                                         };
   }
 }

@@ -96,10 +96,10 @@ freshVars = Prelude.concat [ Prelude.map (<> i) xs | i <- pack "":Prelude.map (p
     where
         xs = Prelude.map Data.Text.singleton ['a' .. 'z']
 
-buildMainMethodMonad :: [JavaStmt] -> ToJavaM CompilationUnit
-buildMainMethodMonad b = do
+buildMainMethodMonad :: [BlockStmt] -> [JavaStmt] -> ToJavaM CompilationUnit
+buildMainMethodMonad block b = do
     -- let intermediate x = buildBasicJava  [buildMainMethod(Just x)]
-    return $ buildBasicJava (buildMainMethod (Just $ Block []) : b)
+    return $ buildBasicJava (buildMainMethod (Just $ Block block) : b)
 
 buildBasicJava :: [Decl] -> CompilationUnit
 buildBasicJava xs = CompilationUnit Nothing [] [ClassTypeDecl (ClassDecl [] (Ident "Main") [] Nothing [] (ClassBody xs))]
@@ -543,3 +543,13 @@ freshJavaAtom = do
 
 addBinding :: JavaBlock -> ToJavaEnv -> ToJavaEnv
 addBinding x env = env { toJavaVars = x : toJavaVars env}
+
+
+getInside :: JavaStmt -> Maybe [BlockStmt]
+getInside (MemberDecl (MethodDecl _ _ _ (Ident "main") _ _ _ (MethodBody (Just ( Block x))))) = Just x
+getInside _ = Nothing
+
+getOutside :: JavaStmt -> Maybe JavaStmt
+getOutside x = case getInside x of
+  Nothing -> Just x
+  Just bss -> Nothing

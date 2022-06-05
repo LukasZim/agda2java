@@ -16,8 +16,8 @@ and False True = False
 and True False = False
 and False False = False
 
--- id : Bool -> Bool
--- id x = x
+id : Bool -> Bool
+id x = x
 
 -- data Nat : Set where
 --   zero : Nat

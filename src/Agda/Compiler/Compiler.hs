@@ -21,7 +21,7 @@ import Data.Text (Text, pack, unpack)
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import Agda.Utils.Pretty (prettyShow)
 import Agda.Compiler.ToJava
-    ( ToJava(toJava), buildMainMethodMonad, runToJavaM, defToTreeless, buildRunFunction )
+    ( ToJava(toJava), buildMainMethodMonad, runToJavaM, defToTreeless, buildRunFunction, JavaStmt, getInside, getOutside )
 import Language.Java.Syntax (CompilationUnit, Block (Block), Modifier (Public))
 import Data.Maybe ( catMaybes )
 
@@ -117,7 +117,10 @@ javaPostModule opts _ ismain modName defs = do
         ts <- catMaybes <$> traverse (defToTreeless . snd) defs
         ds <- traverse toJava ts
         let d = buildRunFunction
-        whole <- buildMainMethodMonad $ d : concat ds
+            dds = concat ds
+            insideMain = concat $catMaybes $ map getInside dds
+            outsideMain = catMaybes $ map getOutside dds
+        whole <- buildMainMethodMonad insideMain $ d : outsideMain
         return $ defToText whole
 
     liftIO $ T.writeFile fileName (preamble <> modText)
