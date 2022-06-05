@@ -21,7 +21,7 @@ import Data.Text (Text, pack, unpack)
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import Agda.Utils.Pretty (prettyShow)
 import Agda.Compiler.ToJava
-    ( ToJava(toJava), buildMainMethodMonad, runToJavaM, defToTreeless )
+    ( ToJava(toJava), buildMainMethodMonad, runToJavaM, defToTreeless, buildRunFunction )
 import Language.Java.Syntax (CompilationUnit, Block (Block), Modifier (Public))
 import Data.Maybe ( catMaybes )
 
@@ -98,6 +98,9 @@ javaPostModule opts _ ismain modName defs = do
         \interface AgdaFunction extends Agda{\n\
         \    Visitor getFn();\n\
         \}\n\n\
+        \interface AgdaLambda extends Agda {\n\
+        \    Agda run(Agda arg);\n\
+        \}\n\n\
         \class AgdaFunctionImpl implements AgdaFunction {\n\
         \    private Visitor fn;\n\
         \    public AgdaFunctionImpl(Visitor fn) {\n\
@@ -113,7 +116,8 @@ javaPostModule opts _ ismain modName defs = do
     modText <- runToJavaM opts $ do
         ts <- catMaybes <$> traverse (defToTreeless . snd) defs
         ds <- traverse toJava ts
-        whole <- buildMainMethodMonad $ concat ds
+        let d = buildRunFunction
+        whole <- buildMainMethodMonad $ d : concat ds
         return $ defToText whole
 
     liftIO $ T.writeFile fileName (preamble <> modText)
@@ -126,3 +130,5 @@ javaPostModule opts _ ismain modName defs = do
     --     buildMainMethodMonad ds
 
     -- liftIO $ T.writeFile fileName modText
+
+

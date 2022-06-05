@@ -320,8 +320,6 @@ lookupJavaDef n = do
 instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) [JavaStmt] where
     toJava (n, bs, f, body, names) = case body of
         TDef d ->  do
-            --hier zou je oook de constructors dierct kunnen maken
-            -- vgm kan je op 1of andere manier een lookup doen?
             ToJavaDef d' i bs visitor <- lookupJavaDef d
             constructors <- mapM toJava (Prelude.zip (Prelude.replicate (Prelude.length bs) (d', visitor)) bs)
             return $ buildJavaDefinition d' i bs visitor ++ constructors
@@ -357,6 +355,21 @@ typeAgda = RefType $ ClassRefType $ ClassType [(Ident "Agda", [])]
 makeType :: String -> Language.Java.Syntax.Type
 makeType name = RefType $ ClassRefType $ ClassType [(Ident name, [])]
 
+buildRunFunction :: JavaStmt
+buildRunFunction = MemberDecl $ MethodDecl 
+    [Public, Static] 
+    []
+    (Just typeAgda)
+    (Ident "runFunction")
+    [
+        FormalParam [] typeAgda False (VarId $ Ident "arg"),
+        FormalParam [] (makeType "AgdaLambda") False (VarId $ Ident "l")
+    ] --params
+    []
+    Nothing
+    (MethodBody (Just $ Block [
+        BlockStmt $ Return (Just $ MethodInv $ PrimaryMethodCall (ExpName $ Name [Ident "l"]) [] (Ident "run") [ExpName $ Name [Ident "arg"]])
+    ]))
 
 buildClassBody :: JavaAtom -> (String, Int) -> [JavaStmt]
 buildClassBody visitorName (name, nargs) = buildPrivateFields nargs ++ [buildConstructorConstructor name nargs, buildMatchFunction name visitorName nargs]
