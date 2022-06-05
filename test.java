@@ -95,4 +95,16 @@ class Main
       return ((NatVisitor) visitor).zero();
     }
   }
+  public static void main (String[] args)
+  {
+    AgdaLambda not = (AgdaLambda) a -> {
+                                         ;
+                                       };
+  }
+  public static void main (String[] args)
+  {
+    AgdaLambda and = (AgdaLambda) b -> (AgdaLambda) c -> {
+                                                           ;
+                                                         };
+  }
 }

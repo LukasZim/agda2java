@@ -64,7 +64,7 @@ type JavaExp = Exp
 type ToJavaM a = StateT ToJavaState (ReaderT ToJavaEnv TCM) a
 
 data ToJavaCon = ToJavaCon JavaAtom Int Bool
-data ToJavaFun = ToJavaFun JavaAtom Int [Bool]
+data ToJavaFun = ToJavaFun JavaAtom Int [Bool] TTerm
 data ToJavaDef = ToJavaDef JavaAtom Int [(String, Int)] JavaAtom
 
 initToJavaState :: ToJavaState
@@ -135,23 +135,25 @@ defToTreeless def
     not (usableModality $ getModality def) = return Nothing
     | otherwise = do
         let f = defName def
-        case theDef def of
+            c = theDef def
+        case c of
             Axiom {} -> do
-                f' <- newJavaDef f 0 []
+                -- f' <- newJavaDef f 0 []
+                -- this should probably be newjavafun
                 return Nothing
             GeneralizableVar{} -> return Nothing
             d@Function{} | d ^. funInline -> return Nothing
             d@Function {} -> do
                 liftIO do
                     putStrLn $ Agda.Compiler.MAlonzo.Pretty.prettyPrint $ qnameName f
-                    -- print d
+                    -- print c
                 strat <- getEvaluationStrategy
                 maybeCompiled <- liftTCM $ toTreeless strat f
                 case maybeCompiled of
                     Just body -> do
                         let (n, body') = lambdaView body
-                        f' <- newJavaFun f n (Prelude.take n (Prelude.repeat False))
-                        return $ Just (n, Prelude.take n (Prelude.repeat False), f', body', [])
+                        f' <- newJavaFun f n (Prelude.take n (Prelude.repeat False)) body
+                        return $ Just (n, Prelude.take n (Prelude.repeat False), f', TDef f, [])
                     Nothing -> return Nothing
             Primitive {} -> do
                 f' <- newJavaDef f 0 []
@@ -168,7 +170,7 @@ defToTreeless def
                             lookupJavaDef f
                             -- addJavaConToDatatype f name nargs
                         _ -> __IMPOSSIBLE__
-                return $ Just (0, [], pack $ Agda.Compiler.MAlonzo.Pretty.prettyPrint $qnameName f, TDef f, [])
+                return $ Just (0, [], pack $ Agda.Compiler.MAlonzo.Pretty.prettyPrint $qnameName f, TCon f, [])
             -- Record{ recConHead = chead, recFields = fs } -> do
             --     processCon chead (Prelude.length fs) True
             --     return Nothing
@@ -216,10 +218,10 @@ newJavaDef n i bs = do
     setNameUsed a
     return a
 
-newJavaFun :: QName -> Int -> [Bool] -> ToJavaM JavaAtom
-newJavaFun n i bs = do
+newJavaFun :: QName -> Int -> [Bool] -> TTerm -> ToJavaM JavaAtom
+newJavaFun n i bs body = do
     a <- makeJavaName n
-    setJavaFun n (ToJavaFun a i bs)
+    setJavaFun n (ToJavaFun a i bs body)
     setNameUsed a
     return a
 
@@ -315,16 +317,45 @@ lookupJavaDef n = do
         Nothing -> fail "couldn't find definition"
         Just a -> return a
 
+lookupJavaFun :: QName -> ToJavaM ToJavaFun
+lookupJavaFun n = do
+    let defs = gets toJavaFuns
+    r <- Map.lookup n <$> defs
+    case r of
+        Nothing -> fail "couldn't find definition"
+        Just a -> return a
+
+
+
+
 
 
 instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) [JavaStmt] where
     toJava (n, bs, f, body, names) = case body of
-        TDef d ->  do
+        TCon d ->  do
             ToJavaDef d' i bs visitor <- lookupJavaDef d
             constructors <- mapM toJava (Prelude.zip (Prelude.replicate (Prelude.length bs) (d', visitor)) bs)
             return $ buildJavaDefinition d' i bs visitor ++ constructors
             -- return $ BlockStmt Empty
-        _ -> __IMPOSSIBLE__
+        TVar {} -> __IMPOSSIBLE__
+        TPrim {} -> __IMPOSSIBLE__
+        TApp {} -> __IMPOSSIBLE__
+        TLam {} ->  __IMPOSSIBLE__
+        TLit {} -> __IMPOSSIBLE__
+        TDef defName -> do
+            ToJavaFun name num bs body <- lookupJavaFun defName
+            x <- withFreshVars num \xs ->
+                javaDefine name xs <$> toJava body
+            return [x]
+            -- return []
+        TLet {} ->  __IMPOSSIBLE__
+        TCase {} ->  __IMPOSSIBLE__
+        TUnit ->  __IMPOSSIBLE__
+        TSort ->  __IMPOSSIBLE__
+        TErased ->  __IMPOSSIBLE__
+        TCoerce {} ->  __IMPOSSIBLE__
+        TError {} ->  __IMPOSSIBLE__
+        -- _ -> __IMPOSSIBLE__
         -- _ ->    withFreshVars n $ \ xs ->do
         --             liftIO do
         --                 print "function something"
@@ -333,11 +364,25 @@ instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) [JavaStmt] where
         --             javaDefine f xs <$> toJava body
 
 instance ToJava TTerm JavaBlock where
-    toJava n = __IMPOSSIBLE__
+    -- toJava n = __IMPOSSIBLE__
+    toJava n = return $ BlockStmt Empty
 
 instance ToJava ((JavaAtom, JavaAtom) , (String, Int)) JavaStmt where
     toJava ((datatype, visitor), (name, nargs)) = do
         return $ buildJavaConstructor datatype visitor (name, nargs)
+
+javaDefine :: JavaAtom -> [JavaAtom] -> JavaBlock -> JavaStmt
+javaDefine name xs body = buildMainMethod (Just $ Block[ LocalVars [] (makeType "AgdaLambda") [
+    VarDecl
+        (VarId $ Ident $ unpack name)
+        (Just $ InitExp$ buildLambda xs body)
+    ]])
+--(AgdaLambda)(x) -> ((AgdaLambda)(y) -> {return x; });
+-- (AgdaLambda)(y) -> {return x; }
+buildLambda :: [JavaAtom] -> JavaBlock -> JavaExp
+buildLambda [] body = __IMPOSSIBLE__
+buildLambda (x:[]) body = Cast (makeType "AgdaLambda") (Lambda (LambdaSingleParam $ Ident $unpack x) (LambdaBlock $ Block [body]))
+buildLambda (x:xs) body = Cast (makeType "AgdaLambda") (Lambda (LambdaSingleParam $ Ident $unpack x) (LambdaExpression $ buildLambda xs body))
 
 buildJavaConstructor :: JavaAtom -> JavaAtom -> (String, Int) -> JavaStmt
 buildJavaConstructor datatype visitorName (name , nargs) = MemberDecl $ MemberClassDecl $
@@ -356,8 +401,8 @@ makeType :: String -> Language.Java.Syntax.Type
 makeType name = RefType $ ClassRefType $ ClassType [(Ident name, [])]
 
 buildRunFunction :: JavaStmt
-buildRunFunction = MemberDecl $ MethodDecl 
-    [Public, Static] 
+buildRunFunction = MemberDecl $ MethodDecl
+    [Public, Static]
     []
     (Just typeAgda)
     (Ident "runFunction")

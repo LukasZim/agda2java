@@ -10,6 +10,12 @@ not : Bool → Bool
 not True  = False
 not False = True
 
+and : Bool -> Bool -> Bool
+and True True = True
+and False True = False
+and True False = False
+and False False = False
+
 -- id : Bool -> Bool
 -- id x = x
 
