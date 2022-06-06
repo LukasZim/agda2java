@@ -18,7 +18,7 @@ import Agda.Compiler.Backend
            conSrcCon, conArity, dataCons, recFields, recConHead),
       MonadTCM(liftTCM),
       TCM,
-      HasConstInfo(getConstInfo), tAppView, qnameToList )
+      HasConstInfo(getConstInfo), tAppView, qnameToList, lookupDefinition )
 import Agda.Syntax.Common
 import Control.Monad.State
 import Language.Java.Syntax
@@ -325,8 +325,32 @@ lookupJavaFun n = do
         Nothing -> fail "couldn't find definition"
         Just a -> return a
 
+lookupJavaCon :: QName -> ToJavaM ToJavaCon
+lookupJavaCon n = do
+    let defs = gets toJavaCons
+    r <- Map.lookup n <$> defs
+    case r of
+        Nothing -> fail "couldn't find definition"
+        Just a -> return a
 
 
+instance ToJava TAlt JavaStmt where
+    toJava n = case n of
+      TACon qname nargs body -> do
+          BlockStmt (ExpStmt body') <- toJava body
+          ToJavaCon name nargs bool <- lookupJavaCon qname
+          return $ MemberDecl
+            (MethodDecl
+                [Public]
+                []
+                (Just typeAgda)
+                (Ident $unpack name)
+                (buildParams nargs)
+                []
+                Nothing
+                (MethodBody $ Just $ Block[BlockStmt $ Return $ Just body']))
+      TAGuard tt tt' -> __IMPOSSIBLE__
+      TALit lit tt -> __IMPOSSIBLE__
 
 
 
@@ -344,8 +368,11 @@ instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) [JavaStmt] where
         TLit {} -> __IMPOSSIBLE__
         TDef defName -> do
             ToJavaFun name num bs body <- lookupJavaFun defName
-            x <- withFreshVars num \xs ->
-                javaDefine name xs <$> toJava body
+            x <- withFreshVars num \xs -> do
+                let zero :: Int
+                    zero = 0
+                parsedBody <- toJava (body, xs, zero)
+                return $ javaDefine name xs parsedBody
             return [x]
             -- return []
         TLet {} ->  __IMPOSSIBLE__
@@ -369,28 +396,131 @@ instance ToJava TTerm JavaBlock where
         TCase num caseType term alts -> do
             special <- isSpecialCase caseType
             case special of
-        _ -> return $ BlockStmt Empty
+                Nothing -> do
+                    withFreshVars' EagerEvaluation 0 $ \xs -> do
+                        let parsedType = getTypeFromCaseInfo caseType
+                        qname <- getConstNameFromCaseInfo caseType
+                        case qname of
+                          Nothing -> __IMPOSSIBLE__
+                          Just qn -> do
+                            ToJavaDef atom _ constr visitorName <- lookupJavaDef qn
+                            x <- buildCaseClasses atom constr visitorName alts
+                            return $ BlockStmt $ ExpStmt $
+                                InstanceCreation
+                                    []
+                                    (TypeDeclSpecifier $ ClassType [(Ident $ unpack visitorName, [])])
+                                    []
+                                    (Just $ ClassBody x)
+                Just sc -> __IMPOSSIBLE__
+        TCon qname -> do
+            ToJavaCon name nargs bool <- lookupJavaCon qname
+            return $ BlockStmt $ ExpStmt $ InstanceCreation [] (TypeDeclSpecifier $ ClassType ([(Ident $ unpack name, [])])) [] Nothing
+        _ -> __IMPOSSIBLE__
+
+instance ToJava (TTerm, [JavaAtom], Integer) Stmt where
+    toJava (n , xs , index) = case n of
+        TCase num caseType term alts -> do
+            special <- isSpecialCase caseType
+            case special of
+                Nothing -> do
+                    withFreshVars' EagerEvaluation 0 $ \xs -> do
+                        let parsedType = getTypeFromCaseInfo caseType
+                        qname <- getConstNameFromCaseInfo caseType
+                        case qname of
+                            Nothing -> __IMPOSSIBLE__
+                            Just qn -> do
+                                ToJavaDef atom _ constr visitorName <- lookupJavaDef qn
+                                x <- buildCaseClasses atom constr visitorName alts
+                                let curName = xs Prelude.!! Prelude.fromIntegral index
+                                return $ Return $ Just $ MethodInv $ 
+                                    PrimaryMethodCall 
+                                        (Cast (makeType "AgdaData") (ExpName $ Name [Ident $ unpack curName]))
+                                        []
+                                        (Ident "match")
+                                        [InstanceCreation
+                                            []
+                                            (TypeDeclSpecifier $ ClassType [(Ident $ unpack visitorName, [])])
+                                            []
+                                            (Just $ ClassBody x)
+                                        ]
+                Just sc -> __IMPOSSIBLE__
+        _ -> __IMPOSSIBLE__
+
+instance ToJava (TTerm, [JavaAtom], Int) JavaExp where
+    toJava (n , xs, index) = case n of
+        TLam body -> do
+
+            case body of
+                TLam _ -> do
+                    parsedBody <- toJava (body, xs, index + 1)
+                    return $ buildLambda xs parsedBody index
+                _ -> do
+                    let zero :: Integer
+                        zero = 0
+                    parsedBody <- toJava (body, xs, zero)
+                    return $ buildLastLambda  xs (BlockStmt parsedBody) index
+        
+        TCon qname -> do
+            ToJavaCon name nargs bool <- lookupJavaCon qname
+            return $  InstanceCreation [] (TypeDeclSpecifier $ ClassType [(Ident $ unpack name, [])]) [] Nothing
+        _  -> __IMPOSSIBLE__
 
 instance ToJava ((JavaAtom, JavaAtom) , (String, Int)) JavaStmt where
     toJava ((datatype, visitor), (name, nargs)) = do
         return $ buildJavaConstructor datatype visitor (name, nargs)
 
+
+
+
+buildCaseClasses :: JavaAtom -> [(String,Int)] ->JavaAtom -> [TAlt] -> ToJavaM [Decl]
+buildCaseClasses typeName constructors visitorName = mapM (buildCase typeName constructors visitorName)
+
+buildCase ::  JavaAtom -> [(String,Int)] ->JavaAtom -> TAlt -> ToJavaM Decl
+buildCase typeName constructors visitorName alt = do
+    -- alt' <- toJava alt
+    parsedAlt <- toJava alt
+    return parsedAlt
+
+getTypeFromCaseInfo :: CaseInfo -> JavaAtom
+getTypeFromCaseInfo (CaseInfo b ct) = case ct of
+                                            CTData quan qn -> pack $ prettyShow $ qnameName qn
+                                            CTNat -> pack "int"
+                                            CTInt -> pack "int"
+                                            CTChar -> pack "char"
+                                            CTString -> pack "String"
+                                            CTFloat -> pack "float"
+                                            CTQName -> pack "CTQNameIdkHowToTranslateThisStringIGuess"
+
+getConstNameFromCaseInfo :: CaseInfo -> ToJavaM (Maybe QName)
+getConstNameFromCaseInfo (CaseInfo b ct) = case ct of
+  CTData quan qn -> return $ Just qn
+  _ -> return Nothing
+
 data SpecialCase = BoolCase
 isSpecialCase :: CaseInfo -> ToJavaM (Maybe SpecialCase)
 isSpecialCase _ = return Nothing
 
-javaDefine :: JavaAtom -> [JavaAtom] -> JavaBlock -> JavaStmt
+
+buildLambda :: [JavaAtom] -> JavaExp -> Int ->  JavaExp
+buildLambda xs body index = Cast (makeType "AgdaLambda") (Lambda (LambdaSingleParam $ Ident $unpack $  xs Prelude.!! index) (LambdaExpression body))
+
+buildLastLambda :: [JavaAtom] -> JavaBlock -> Int -> JavaExp
+buildLastLambda xs body index = Cast (makeType "AgdaLambda") (Lambda (LambdaSingleParam $ Ident $unpack $ xs Prelude.!! index) (LambdaBlock $ Block [body]))
+
+
+javaDefine :: JavaAtom -> [JavaAtom] -> JavaExp -> JavaStmt
 javaDefine name xs body = buildMainMethod (Just $ Block[ LocalVars [] (makeType "AgdaLambda") [
     VarDecl
         (VarId $ Ident $ unpack name)
-        (Just $ InitExp$ buildLambda xs body)
+        -- (Just $ InitExp$ buildLambda xs body)
+        (Just $ InitExp body)
     ]])
 --(AgdaLambda)(x) -> ((AgdaLambda)(y) -> {return x; });
 -- (AgdaLambda)(y) -> {return x; }
-buildLambda :: [JavaAtom] -> JavaBlock -> JavaExp
-buildLambda [] body = __IMPOSSIBLE__
-buildLambda (x:[]) body = Cast (makeType "AgdaLambda") (Lambda (LambdaSingleParam $ Ident $unpack x) (LambdaBlock $ Block [body]))
-buildLambda (x:xs) body = Cast (makeType "AgdaLambda") (Lambda (LambdaSingleParam $ Ident $unpack x) (LambdaExpression $ buildLambda xs body))
+-- buildLambda :: [JavaAtom] -> JavaBlock -> JavaExp
+-- buildLambda [] body = __IMPOSSIBLE__
+-- buildLambda (x:[]) body = Cast (makeType "AgdaLambda") (Lambda (LambdaSingleParam $ Ident $unpack x) (LambdaBlock $ Block [body]))
+-- buildLambda (x:xs) body = Cast (makeType "AgdaLambda") (Lambda (LambdaSingleParam $ Ident $unpack x) (LambdaExpression $ buildLambda xs body))
 
 buildJavaConstructor :: JavaAtom -> JavaAtom -> (String, Int) -> JavaStmt
 buildJavaConstructor datatype visitorName (name , nargs) = MemberDecl $ MemberClassDecl $
@@ -470,9 +600,9 @@ buildClassBody visitorName (name, nargs) = buildPrivateFields nargs ++ [buildCon
         buildConstructorBody 0 = []
         buildConstructorBody n = BlockStmt (ExpStmt $ Assign (FieldLhs $ PrimaryFieldAccess This (Ident $ "arg" ++ show n)) EqualA (ExpName $ Name [Ident $"arg" ++ show n])) : buildConstructorBody (n - 1)
 
-        buildParams :: Int -> [FormalParam]
-        buildParams 0 = []
-        buildParams n = FormalParam [] typeAgda False (VarId $ Ident ("arg" ++ show n)) : buildParams (n - 1)
+buildParams :: Int -> [FormalParam]
+buildParams 0 = []
+buildParams n = FormalParam [] typeAgda False (VarId $ Ident ("arg" ++ show n)) : buildParams (n - 1)
 
 buildJavaDefinition :: JavaAtom -> Int -> [(String, Int)] -> JavaAtom -> [JavaStmt]
 buildJavaDefinition name nargs consNames visitorName = [buildJavaVisitor visitorName consNames, buildJavaAbstractClass name]

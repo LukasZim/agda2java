@@ -592,6 +592,12 @@ getTypeFromCaseInfo (CaseInfo b ct) = case ct of
                                             CTFloat -> pack "float"
                                             CTQName -> pack "CTQNameIdkHowToTranslateThisStringIGuess"
 
+getConstNameFromCaseInfo :: CaseInfo -> Maybe QName
+getConstNameFromCaseInfo (CaseInfo b ct) = case ct of
+  CTData quan qn -> Just qn
+  _ -> Nothing
+
+
         -- withFreshVars n $ \ xs ->
         --     javaDefine f (dropArgs bs xs) <$> toJava2 body
 

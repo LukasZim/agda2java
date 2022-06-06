@@ -12,17 +12,17 @@ not False = True
 
 -- notFalse = not False
 
-test : Bool -> Bool -> Bool -> Bool -> Bool -> Bool
-test _ _ _ _ x = x
+-- test : Bool -> Bool -> Bool -> Bool -> Bool -> Bool
+-- test _ _ _ _ x = x
 
-and : Bool -> Bool -> Bool
-and True True = True
-and False True = False
-and True False = False
-and False False = False
+-- and : Bool -> Bool -> Bool
+-- and True True = True
+-- and False True = False
+-- and True False = False
+-- and False False = False
 
-id : Bool -> Bool
-id x = x
+-- id : Bool -> Bool
+-- id x = x
 
 -- data Nat : Set where
 --   zero : Nat
