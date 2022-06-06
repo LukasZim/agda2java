@@ -6,20 +6,24 @@ data Nat : Set where
   zero : Nat
   suc : Nat -> Nat
 
-not : Bool → Bool
-not True  = False
-not False = True
+-- not : Bool → Bool
+-- not True  = False
+-- not False = True
 
 -- notFalse = not False
 
 -- test : Bool -> Bool -> Bool -> Bool -> Bool -> Bool
 -- test _ _ _ _ x = x
 
--- and : Bool -> Bool -> Bool
--- and True True = True
--- and False True = False
--- and True False = False
--- and False False = False
+and : Bool -> Bool -> Bool
+and True True = True
+and False True = False
+and True False = False
+and False False = False
+
+-- or : Bool -> Bool -> Bool
+-- or False False = False
+-- or _ _ = True
 
 -- id : Bool -> Bool
 -- id x = x

@@ -415,7 +415,12 @@ instance ToJava TTerm JavaBlock where
         TCon qname -> do
             ToJavaCon name nargs bool <- lookupJavaCon qname
             return $ BlockStmt $ ExpStmt $ InstanceCreation [] (TypeDeclSpecifier $ ClassType ([(Ident $ unpack name, [])])) [] Nothing
-        _ -> __IMPOSSIBLE__
+        TVar n -> do
+            getVar n
+        x -> do
+            liftIO do
+                putStrLn $ show x
+            __IMPOSSIBLE__
 
 instance ToJava (TTerm, [JavaAtom], Integer) Stmt where
     toJava (n , xs , index) = case n of
@@ -423,7 +428,7 @@ instance ToJava (TTerm, [JavaAtom], Integer) Stmt where
             special <- isSpecialCase caseType
             case special of
                 Nothing -> do
-                    withFreshVars' EagerEvaluation 0 $ \xs -> do
+                    withFreshVars' EagerEvaluation 0 $ \xss -> do
                         let parsedType = getTypeFromCaseInfo caseType
                         qname <- getConstNameFromCaseInfo caseType
                         case qname of
@@ -432,6 +437,7 @@ instance ToJava (TTerm, [JavaAtom], Integer) Stmt where
                                 ToJavaDef atom _ constr visitorName <- lookupJavaDef qn
                                 x <- buildCaseClasses atom constr visitorName alts
                                 let curName = xs Prelude.!! Prelude.fromIntegral index
+                                -- let curName = pack "jef"
                                 return $ Return $ Just $ MethodInv $ 
                                     PrimaryMethodCall 
                                         (Cast (makeType "AgdaData") (ExpName $ Name [Ident $ unpack curName]))
@@ -444,7 +450,15 @@ instance ToJava (TTerm, [JavaAtom], Integer) Stmt where
                                             (Just $ ClassBody x)
                                         ]
                 Just sc -> __IMPOSSIBLE__
-        _ -> __IMPOSSIBLE__
+        TLet u v -> do
+            expr <- toJava u
+            withFreshVar $ \x -> do
+                body <- toJava v
+                return $ StmtBlock $ Block [body]
+        x -> do
+            liftIO do
+                print x
+            __IMPOSSIBLE__
 
 instance ToJava (TTerm, [JavaAtom], Int) JavaExp where
     toJava (n , xs, index) = case n of
