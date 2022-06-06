@@ -10,6 +10,11 @@ not : Bool → Bool
 not True  = False
 not False = True
 
+-- notFalse = not False
+
+test : Bool -> Bool -> Bool -> Bool -> Bool -> Bool
+test _ _ _ _ x = x
+
 and : Bool -> Bool -> Bool
 and True True = True
 and False True = False

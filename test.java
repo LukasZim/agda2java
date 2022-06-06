@@ -31,10 +31,13 @@ class Main
     AgdaLambda not = (AgdaLambda) a -> {
                                          ;
                                        };
-    AgdaLambda and = (AgdaLambda) b -> (AgdaLambda) c -> {
+    AgdaLambda test = (AgdaLambda) b -> (AgdaLambda) c -> (AgdaLambda) d -> (AgdaLambda) e -> (AgdaLambda) f -> {
+                                                                                                                  ;
+                                                                                                                };
+    AgdaLambda and = (AgdaLambda) g -> (AgdaLambda) h -> {
                                                            ;
                                                          };
-    AgdaLambda id = (AgdaLambda) d -> {
+    AgdaLambda id = (AgdaLambda) i -> {
                                         ;
                                       };
   }

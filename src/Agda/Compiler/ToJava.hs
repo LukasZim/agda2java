@@ -365,11 +365,19 @@ instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) [JavaStmt] where
 
 instance ToJava TTerm JavaBlock where
     -- toJava n = __IMPOSSIBLE__
-    toJava n = return $ BlockStmt Empty
+    toJava n = case n of
+        TCase num caseType term alts -> do
+            special <- isSpecialCase caseType
+            case special of
+        _ -> return $ BlockStmt Empty
 
 instance ToJava ((JavaAtom, JavaAtom) , (String, Int)) JavaStmt where
     toJava ((datatype, visitor), (name, nargs)) = do
         return $ buildJavaConstructor datatype visitor (name, nargs)
+
+data SpecialCase = BoolCase
+isSpecialCase :: CaseInfo -> ToJavaM (Maybe SpecialCase)
+isSpecialCase _ = return Nothing
 
 javaDefine :: JavaAtom -> [JavaAtom] -> JavaBlock -> JavaStmt
 javaDefine name xs body = buildMainMethod (Just $ Block[ LocalVars [] (makeType "AgdaLambda") [
