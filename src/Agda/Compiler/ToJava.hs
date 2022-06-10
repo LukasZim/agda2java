@@ -88,7 +88,7 @@ data ToJavaState = ToJavaState
 data ToJavaEnv = ToJavaEnv
     {
         toJavaOptions :: JavaOptions
-        , toJavaVars :: [JavaBlock] -- not sure this is correctly typed yet
+        , toJavaVars :: [JavaExp] -- not sure this is correctly typed yet
     }
 
 freshVars :: [JavaAtom]
@@ -337,7 +337,7 @@ lookupJavaCon n = do
 instance ToJava TAlt JavaStmt where
     toJava n = case n of
       TACon qname nargs body -> do
-          BlockStmt (ExpStmt body') <- toJava body
+          body' <- toJava body
           ToJavaCon name nargs bool <- lookupJavaCon qname
           return $ MemberDecl
             (MethodDecl
@@ -390,7 +390,7 @@ instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) [JavaStmt] where
         --                 print f
         --             javaDefine f xs <$> toJava body
 
-instance ToJava TTerm JavaBlock where
+instance ToJava TTerm JavaExp where
     -- toJava n = __IMPOSSIBLE__
     toJava n = case n of
         TCase num caseType term alts -> do
@@ -405,7 +405,7 @@ instance ToJava TTerm JavaBlock where
                           Just qn -> do
                             ToJavaDef atom _ constr visitorName <- lookupJavaDef qn
                             x <- buildCaseClasses atom constr visitorName alts
-                            return $ BlockStmt $ ExpStmt $
+                            return $ 
                                 InstanceCreation
                                     []
                                     (TypeDeclSpecifier $ ClassType [(Ident $ unpack visitorName, [])])
@@ -414,7 +414,7 @@ instance ToJava TTerm JavaBlock where
                 Just sc -> __IMPOSSIBLE__
         TCon qname -> do
             ToJavaCon name nargs bool <- lookupJavaCon qname
-            return $ BlockStmt $ ExpStmt $ InstanceCreation [] (TypeDeclSpecifier $ ClassType ([(Ident $ unpack name, [])])) [] Nothing
+            return $  InstanceCreation [] (TypeDeclSpecifier $ ClassType ([(Ident $ unpack name, [])])) [] Nothing
         TVar n -> do
             getVar n
         x -> do
@@ -428,7 +428,7 @@ instance ToJava (TTerm, [JavaAtom], Integer) Stmt where
             special <- isSpecialCase caseType
             case special of
                 Nothing -> do
-                    withFreshVars' EagerEvaluation 0 $ \xss -> do
+                    withFreshVars' EagerEvaluation (fromInteger index) $ \xss -> do
                         let parsedType = getTypeFromCaseInfo caseType
                         qname <- getConstNameFromCaseInfo caseType
                         case qname of
@@ -438,8 +438,8 @@ instance ToJava (TTerm, [JavaAtom], Integer) Stmt where
                                 x <- buildCaseClasses atom constr visitorName alts
                                 let curName = xs Prelude.!! Prelude.fromIntegral index
                                 -- let curName = pack "jef"
-                                return $ Return $ Just $ MethodInv $ 
-                                    PrimaryMethodCall 
+                                return $ Return $ Just $ MethodInv $
+                                    PrimaryMethodCall
                                         (Cast (makeType "AgdaData") (ExpName $ Name [Ident $ unpack curName]))
                                         []
                                         (Ident "match")
@@ -454,7 +454,7 @@ instance ToJava (TTerm, [JavaAtom], Integer) Stmt where
             expr <- toJava u
             withFreshVar $ \x -> do
                 body <- toJava v
-                return $ StmtBlock $ Block [body]
+                return $ ExpStmt body
         x -> do
             liftIO do
                 print x
@@ -473,19 +473,45 @@ instance ToJava (TTerm, [JavaAtom], Int) JavaExp where
                         zero = 0
                     parsedBody <- toJava (body, xs, zero)
                     return $ buildLastLambda  xs (BlockStmt parsedBody) index
-        
+
         TCon qname -> do
             ToJavaCon name nargs bool <- lookupJavaCon qname
             return $  InstanceCreation [] (TypeDeclSpecifier $ ClassType [(Ident $ unpack name, [])]) [] Nothing
-        _  -> __IMPOSSIBLE__
+        TApp term args -> case term of
+            TDef qname -> do
+                ToJavaFun name nargs _ body <- lookupJavaFun qname
 
+                expArgs <- mapM (toJava . helperFun xs index) args
+                return $ useRunFunction name  expArgs
+            TCon qname ->  do
+                ToJavaCon name nargs _ <- lookupJavaCon qname
+                expArgs <- mapM (toJava . helperFun xs index) args
+                return $ InstanceCreation [] (TypeDeclSpecifier $ ClassType [(Ident $ unpack name, [])]) expArgs Nothing
+
+            x -> do
+                liftIO do
+                    print x
+                __IMPOSSIBLE__
+        x  -> do
+            liftIO do
+                print x
+            __IMPOSSIBLE__
+
+helperFun :: [JavaAtom] -> Int -> TTerm -> (TTerm, [JavaAtom], Int)
+helperFun atoms num term = (term, atoms, num)
 instance ToJava ((JavaAtom, JavaAtom) , (String, Int)) JavaStmt where
     toJava ((datatype, visitor), (name, nargs)) = do
         return $ buildJavaConstructor datatype visitor (name, nargs)
 
+useRunFunctionHelper :: JavaAtom -> [Exp] -> JavaExp
+useRunFunctionHelper name xs = useRunFunction name  (Prelude.reverse xs)
 
+useRunFunction :: JavaAtom -> [Exp] -> JavaExp
+useRunFunction name [] = __IMPOSSIBLE__
+useRunFunction name [x] = MethodInv $ MethodCall (Name [Ident "runFunction"]) [x, ExpName $ Name [Ident $ unpack name]]
+useRunFunction name (x:xs) =  MethodInv $ MethodCall (Name [Ident "runFunction"]) [x, Cast (makeType "AgdaLambda") $ useRunFunction name xs]
 
-
+-- dit is waar er momenteel een bug zit
 buildCaseClasses :: JavaAtom -> [(String,Int)] ->JavaAtom -> [TAlt] -> ToJavaM [Decl]
 buildCaseClasses typeName constructors visitorName = mapM (buildCase typeName constructors visitorName)
 
@@ -523,7 +549,7 @@ buildLastLambda xs body index = Cast (makeType "AgdaLambda") (Lambda (LambdaSing
 
 
 javaDefine :: JavaAtom -> [JavaAtom] -> JavaExp -> JavaStmt
-javaDefine name xs body = buildMainMethod (Just $ Block[ LocalVars [] (makeType "AgdaLambda") [
+javaDefine name xs body = buildMainMethod (Just $ Block[ LocalVars [] (makeType "var") [
     VarDecl
         (VarId $ Ident $ unpack name)
         -- (Just $ InitExp$ buildLambda xs body)
@@ -646,7 +672,7 @@ javaApps :: JavaBlock -> [JavaBlock] -> JavaBlock
 -- build this : ((AgdaData) b1).match(andF);
 javaApps f args = Prelude.foldl (\x y -> x) f args
 
-getVar :: Int -> ToJavaM JavaBlock
+getVar :: Int -> ToJavaM JavaExp
 getVar i = reader $ (Prelude.!! i) . toJavaVars
 
 makeDelay :: ToJavaM (JavaExp -> JavaExp)
@@ -677,7 +703,7 @@ withFreshVar f = do
 withFreshVar' :: EvaluationStrategy -> (JavaAtom -> ToJavaM a) -> ToJavaM a
 withFreshVar' strat f = do
     x <- freshJavaAtom
-    local (addBinding $ forceIfLazy strat BlockStmt $ ExpStmt $ ExpName $ Language.Java.Syntax.Name [Ident (unpack x)]) $ f x
+    local (addBinding $ forceIfLazy strat ExpName $ Language.Java.Syntax.Name [Ident (unpack x)]) $ f x
 
 forceIfLazy :: EvaluationStrategy -> a -> a
 forceIfLazy strat = id
@@ -693,7 +719,7 @@ freshJavaAtom = do
               setNameUsed x
               return x
 
-addBinding :: JavaBlock -> ToJavaEnv -> ToJavaEnv
+addBinding :: JavaExp -> ToJavaEnv -> ToJavaEnv
 addBinding x env = env { toJavaVars = x : toJavaVars env}
 
 

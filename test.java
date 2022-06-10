@@ -28,23 +28,20 @@ class Main
 {
   public static void main (String[] args)
   {
-    AgdaLambda or = (AgdaLambda) a -> (AgdaLambda) b -> {
-                                                          {
-                                                            new BoolVisitor()
-                                                            {
-                                                              public Agda False ()
-                                                              {
-                                                                return new BoolVisitor()
-                                                                       {
-                                                                         public Agda False ()
-                                                                         {
-                                                                           return b;
-                                                                         }
-                                                                       };
-                                                              }
-                                                            };
-                                                          }
-                                                        };
+    var minusOne = (AgdaLambda) a -> {
+                                       return ((AgdaData) a).match(new NatVisitor()
+                                                                   {
+                                                                     public Agda zero ()
+                                                                     {
+                                                                       return b;
+                                                                     }
+                                                                     public Agda suc (Agda arg1)
+                                                                     {
+                                                                       return b;
+                                                                     }
+                                                                   });
+                                     };
+    var ans = runFunction(new suc(new suc(new zero())), minusOne);
   }
   public static Agda runFunction (Agda arg, AgdaLambda l)
   {
@@ -110,6 +107,42 @@ class Main
     public Agda match (Visitor visitor)
     {
       return ((NatVisitor) visitor).zero();
+    }
+  }
+  interface VectorVisitor extends Visitor
+  {
+    Agda Next (Agda arg3, Agda arg2, Agda arg1)
+    ;
+    Agda Empty ()
+    ;
+  }
+  abstract static class Vector implements AgdaData
+  {
+  }
+  static class Next extends Vector
+  {
+    private final Agda arg3;
+    private final Agda arg2;
+    private final Agda arg1;
+    public Next (Agda arg3, Agda arg2, Agda arg1)
+    {
+      this.arg3 = arg3;
+      this.arg2 = arg2;
+      this.arg1 = arg1;
+    }
+    public Agda match (Visitor visitor)
+    {
+      return ((VectorVisitor) visitor).Next(arg3, arg2, arg1);
+    }
+  }
+  static class Empty extends Vector
+  {
+    public Empty ()
+    {
+    }
+    public Agda match (Visitor visitor)
+    {
+      return ((VectorVisitor) visitor).Empty();
     }
   }
 }
