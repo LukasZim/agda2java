@@ -2,19 +2,23 @@ data Bool : Set where
   True : Bool
   False : Bool
 
--- not : Bool → Bool
--- not True  = False
--- not False = True
+
 
 data Nat : Set where
   zero : Nat
   suc : Nat -> Nat
 
-minusOne : Nat -> Nat
-minusOne zero = zero
-minusOne (suc n) = n
 
-ans = minusOne (suc (suc zero))
+plus : Nat -> Nat -> Nat
+plus zero y = y
+plus (suc x) y = suc (plus x y)
+
+mult : Nat -> Nat -> Nat
+mult zero y = zero
+mult (suc x) y = plus y (mult x y)
+
+ans = plus (suc zero) (suc zero)
+ans2 = mult (suc (suc (suc zero))) (suc (suc zero))
 
 
 -- notFalse = not False
@@ -38,13 +42,10 @@ ans = minusOne (suc (suc zero))
 
 
 
-minus : Nat -> Nat -> Nat
-minus zero x = x
-minus x zero = zero
-minus (suc y) (suc x) = minus y x
-
--- minusOneAlt : Nat -> Nat
--- minusOneAlt = minus (suc zero)
+-- minus : Nat -> Nat -> Nat
+-- minus zero x = x
+-- minus x zero = zero
+-- minus (suc y) (suc x) = minus y x
 
 
 

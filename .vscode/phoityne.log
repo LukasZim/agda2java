@@ -102,3 +102,9 @@
 2022-06-10 20:57:12.969774300000 [$pid(ThreadId 5)] ERROR APP - already at the beginning of the history
 2022-06-10 20:57:43.906743800000 [$pid(ThreadId 5)] ERROR APP - already at the beginning of the history
 2022-06-10 20:57:45.656144100000 [$pid(ThreadId 5)] ERROR APP - already at the beginning of the history
+2022-06-10 23:59:32.175480400000 [$pid(ThreadId 5)] ERROR APP - <file descriptor: 5>: hPutChar: resource vanished (Broken pipe)
+2022-06-10 23:59:33.456909300000 [$pid(ThreadId 5)] ERROR APP - <file descriptor: 5>: hPutChar: resource vanished (Broken pipe)
+2022-06-10 23:59:34.577498500000 [$pid(ThreadId 5)] ERROR APP - <file descriptor: 5>: hPutChar: resource vanished (Broken pipe)
+2022-06-10 23:59:35.326467800000 [$pid(ThreadId 5)] ERROR APP - <file descriptor: 5>: hPutChar: resource vanished (Broken pipe)
+2022-06-10 23:59:38.505554500000 [$pid(ThreadId 5)] ERROR APP - <file descriptor: 5>: hPutChar: resource vanished (Broken pipe)
+2022-06-10 23:59:40.998529700000 [$pid(ThreadId 5)] CRITICAL APP - <file descriptor: 5>: hPutChar: resource vanished (Broken pipe)

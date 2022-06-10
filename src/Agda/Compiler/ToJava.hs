@@ -361,12 +361,12 @@ lookupJavaCon n = do
 instance ToJava (TAlt, [JavaAtom], Integer) JavaStmt where
     toJava (n, xs, index) = case n of
       TACon qname nargs body -> do
-          ToJavaCon name nargs bool <- lookupJavaCon qname
-          withFreshVar $ \id ->
-              withFreshVars nargs $ \vars -> do
-                  -- this call is funky apparently
-                body' <- toJava (body, xs, index)
-                body'' <- buildTAConBody body' name id vars
+            ToJavaCon name nargs bool <- lookupJavaCon qname
+        --   withFreshVar $ \id ->
+            withFreshVars nargs $ \vars -> do
+                -- this call is funky apparently
+                Block body' <- toJava (body, xs, index)
+                body'' <- buildTAConBody body' name vars
                 return $ MemberDecl
                     (MethodDecl
                         [Public]
@@ -380,27 +380,25 @@ instance ToJava (TAlt, [JavaAtom], Integer) JavaStmt where
       TAGuard tt tt' -> __IMPOSSIBLE__
       TALit lit tt -> __IMPOSSIBLE__
 
-buildTAConBody :: Stmt -> JavaAtom ->JavaAtom -> [JavaAtom] -> ToJavaM Block
-buildTAConBody body constName id vars = do
+buildTAConBody :: [BlockStmt] -> JavaAtom -> [JavaAtom] -> ToJavaM Block
+buildTAConBody body constName vars = do
     body' <- buildReturnStatement body
-    return $ Block [
-            LocalVars [] (makeType "var") [VarDecl (VarId $ Ident $unpack id) (Just $ InitExp $ InstanceCreation [] (TypeDeclSpecifier $ ClassType [(Ident $unpack constName, [])]) (constArgs vars) Nothing)],
-            body'
-            -- BlockStmt $ ExpStmt body
-        ]
+    return $ Block body'
             where
                 constArgs :: [JavaAtom] -> [Exp]
                 constArgs [] = []
                 constArgs (x:xs) = ExpName (Name [Ident $ unpack x]) : constArgs xs
 
-                buildReturnStatement :: Stmt -> ToJavaM BlockStmt
-                buildReturnStatement stmt = case stmt of
-                  Return x -> return $ BlockStmt $ Return x
-                  ExpStmt exp -> return $ BlockStmt $ Return (Just exp)
+                buildReturnStatement :: [BlockStmt] -> ToJavaM [BlockStmt]
+                buildReturnStatement [] = __IMPOSSIBLE__
+                buildReturnStatement [stmt] = case stmt of
+                  BlockStmt  (Return x) -> return  [BlockStmt $ Return x]
+                  BlockStmt (ExpStmt exp) -> return  [BlockStmt $ Return (Just exp)]
                   x ->do
                     liftIO do
                         print x
                     __IMPOSSIBLE__
+                buildReturnStatement (x:xs) = buildReturnStatement xs
 
 
 buildParamsFromVars :: [JavaAtom] -> [FormalParam]
@@ -491,23 +489,23 @@ instance ToJava TTerm JavaExp where
             toJava (x, empty, zero)
             -- __IMPOSSIBLE__
 
-instance ToJava (TTerm, [JavaAtom], Integer) Stmt where
+instance ToJava (TTerm, [JavaAtom], Integer) Block where
     toJava (n , xs , index) = case n of
         TCase num caseType term alts -> do
             special <- isSpecialCase caseType
             case special of
                 Nothing -> do
-                    withFreshVars' EagerEvaluation (fromInteger index) $ \xss -> do
+                    -- withFreshVars' EagerEvaluation (fromInteger index) $ \xss -> do
                         let parsedType = getTypeFromCaseInfo caseType
                         qname <- getConstNameFromCaseInfo caseType
                         case qname of
                             Nothing -> __IMPOSSIBLE__
                             Just qn -> do
                                 ToJavaDef atom _ constr visitorName <- lookupJavaDef qn
-                                x <- buildCaseClasses atom constr visitorName xs index alts
+                                x <- buildCaseClasses atom constr visitorName xs (index+1) alts
                                 let curName = xs Prelude.!! Prelude.fromIntegral index
                                 -- let curName = pack "jef"
-                                return $ Return $ Just $ MethodInv $
+                                return $ Block[BlockStmt $ Return $ Just $ MethodInv $
                                     PrimaryMethodCall
                                         (Cast (makeType "AgdaData") (ExpName $ Name [Ident $ unpack curName]))
                                         []
@@ -517,18 +515,19 @@ instance ToJava (TTerm, [JavaAtom], Integer) Stmt where
                                             (TypeDeclSpecifier $ ClassType [(Ident $ unpack visitorName, [])])
                                             []
                                             (Just $ ClassBody x)
-                                        ]
+                                        ]]
                 Just sc -> __IMPOSSIBLE__
         TLet u v -> do
             expr <- toJava u
             withFreshVar $ \x -> do
-                body <- toJava v
-                return $ ExpStmt body
+                Block xs <- toJava (v , x:xs, index)
+                -- return $ BlockStmt$ ExpStmt body
+                return $ Block (LocalVars [] (makeType "Agda") [VarDecl (VarId $ Ident $ unpack x) (Just $InitExp expr)] : xs)
         x -> do
             liftIO do
                 print x
             y <- toJava x
-            return $ ExpStmt y
+            return $ Block[BlockStmt$  ExpStmt y]
 
 instance ToJava (TTerm, [JavaAtom], Int) JavaExp where
     toJava (n , xs, index) = case n of
@@ -541,8 +540,8 @@ instance ToJava (TTerm, [JavaAtom], Int) JavaExp where
                 _ -> do
                     let zero :: Integer
                         zero = 0
-                    parsedBody <- toJava (body, xs, zero)
-                    return $ buildLastLambda  xs (BlockStmt parsedBody) index
+                    Block stmts <- toJava (body, xs, zero)
+                    return $ buildLastLambda  xs (stmts) index
 
         TCon qname -> do
             ToJavaCon name nargs bool <- lookupJavaCon qname
@@ -562,6 +561,7 @@ instance ToJava (TTerm, [JavaAtom], Int) JavaExp where
                 liftIO do
                     print x
                 __IMPOSSIBLE__
+
         x  -> do
             liftIO do
                 -- print x
@@ -628,8 +628,8 @@ isSpecialCase _ = return Nothing
 buildLambda :: [JavaAtom] -> JavaExp -> Int ->  JavaExp
 buildLambda xs body index = Cast (makeType "AgdaLambda") (Lambda (LambdaSingleParam $ Ident $unpack $  xs Prelude.!! index) (LambdaExpression body))
 
-buildLastLambda :: [JavaAtom] -> JavaBlock -> Int -> JavaExp
-buildLastLambda xs body index = Cast (makeType "AgdaLambda") (Lambda (LambdaSingleParam $ Ident $unpack $ xs Prelude.!! index) (LambdaBlock $ Block [body]))
+buildLastLambda :: [JavaAtom] -> [JavaBlock] -> Int -> JavaExp
+buildLastLambda xs body index = Cast (makeType "AgdaLambda") (Lambda (LambdaSingleParam $ Ident $unpack $ xs Prelude.!! index) (LambdaBlock $ Block body))
 
 
 -- javaDefine :: JavaAtom -> [JavaAtom] -> JavaExp -> JavaStmt
