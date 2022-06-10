@@ -28,25 +28,55 @@ class Main
 {
   public static void main (String[] args)
   {
-    var minusOne = (AgdaLambda) a -> {
-                                       return ((AgdaData) a).match(new NatVisitor()
-                                                                   {
-                                                                     public Agda zero ()
-                                                                     {
-                                                                       return b;
-                                                                     }
-                                                                     public Agda suc (Agda arg1)
-                                                                     {
-                                                                       return b;
-                                                                     }
-                                                                   });
-                                     };
-    var ans = runFunction(new suc(new suc(new zero())), minusOne);
+    minusOne = (AgdaLambda) a -> {
+                                   return ((AgdaData) a).match(new NatVisitor()
+                                                               {
+                                                                 public Agda zero ()
+                                                                 {
+                                                                   var b = new zero();
+                                                                   return b;
+                                                                 }
+                                                                 public Agda suc (Agda d)
+                                                                 {
+                                                                   var c = new suc(d);
+                                                                   return d;
+                                                                 }
+                                                               });
+                                 };
+    ans = runFunction(new suc(new suc(new zero())), ((AgdaLambda) minusOne));
+    minus = (AgdaLambda) e -> (AgdaLambda) f -> {
+                                                  return ((AgdaData) e).match(new NatVisitor()
+                                                                              {
+                                                                                public Agda zero ()
+                                                                                {
+                                                                                  var g = new zero();
+                                                                                  return g;
+                                                                                }
+                                                                                public Agda suc (Agda i)
+                                                                                {
+                                                                                  var h = new suc(i);
+                                                                                  return ((AgdaData) e).match(new NatVisitor()
+                                                                                                              {
+                                                                                                                public Agda zero ()
+                                                                                                                {
+                                                                                                                  var j = new zero();
+                                                                                                                  return i;
+                                                                                                                }
+                                                                                                                public Agda suc (Agda l)
+                                                                                                                {
+                                                                                                                  var k = new suc(l);
+                                                                                                                  return runFunction(k, ((AgdaLambda) runFunction(l, ((AgdaLambda) minus))));
+                                                                                                                }
+                                                                                                              });
+                                                                                }
+                                                                              });
+                                                };
   }
   public static Agda runFunction (Agda arg, AgdaLambda l)
   {
     return l.run(arg);
   }
+  private static Agda minusOne, ans, minus;
   interface BoolVisitor extends Visitor
   {
     Agda False ()

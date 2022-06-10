@@ -16,14 +16,15 @@ import Agda.Compiler.Common (compileDir)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Language.Java.Pretty ( prettyPrint )
-
+-- import Data.Map
 import Data.Text (Text, pack, unpack)
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import Agda.Utils.Pretty (prettyShow)
 import Agda.Compiler.ToJava
-    ( ToJava(toJava), buildMainMethodMonad, runToJavaM, defToTreeless, buildRunFunction, JavaStmt, getInside, getOutside )
+    ( ToJava(toJava), buildMainMethodMonad, runToJavaM, defToTreeless, buildRunFunction, JavaStmt, getInside, getOutside, ToJavaState (toJavaFuns), getJavaFunctionNames )
 import Language.Java.Syntax (CompilationUnit, Block (Block), Modifier (Public))
 import Data.Maybe ( catMaybes )
+import Agda.Compiler.ToJava
 
 
 test :: String
@@ -118,9 +119,13 @@ javaPostModule opts _ ismain modName defs = do
         ds <- traverse toJava ts
         let d = buildRunFunction
             dds = concat ds
-            insideMain = concat $catMaybes $ map getInside dds
-            outsideMain = catMaybes $ map getOutside dds
-        whole <- buildMainMethodMonad insideMain $ d : outsideMain
+            insideMain = concat $catMaybes $ Prelude.map getInside dds
+            -- test = toList gets toJavaFuns
+            outsideMain = catMaybes $ Prelude.map getOutside dds
+        moreOutside <- getJavaFunctionNames
+        let fields = createFields moreOutside
+            moreOutsideMain = fields ++  outsideMain
+        whole <- buildMainMethodMonad insideMain $ d : moreOutsideMain
         return $ defToText whole
 
     liftIO $ T.writeFile fileName (preamble <> modText)

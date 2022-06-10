@@ -38,10 +38,10 @@ ans = minusOne (suc (suc zero))
 
 
 
--- minus : Nat -> Nat -> Nat
--- minus zero x = x
--- minus x zero = zero
--- minus (suc y) (suc x) = minus y x
+minus : Nat -> Nat -> Nat
+minus zero x = x
+minus x zero = zero
+minus (suc y) (suc x) = minus y x
 
 -- minusOneAlt : Nat -> Nat
 -- minusOneAlt = minus (suc zero)

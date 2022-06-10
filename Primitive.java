@@ -33,4 +33,5 @@ class Main
   {
     return l.run(arg);
   }
+  private static Agda;
 }

@@ -96,3 +96,9 @@
 2022-06-06 23:48:31.718477400000 [$pid(ThreadId 5)] ERROR APP - user error (no stacktrace found.)
 2022-06-06 23:48:33.621564600000 [$pid(ThreadId 5)] ERROR APP - user error (ExecResult not found.)
 2022-06-07 01:35:07.810518200000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-06-10 20:04:09.696257400000 [$pid(ThreadId 5)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-06-10 20:57:10.232475000000 [$pid(ThreadId 5)] ERROR APP - already at the beginning of the history
+2022-06-10 20:57:12.136869000000 [$pid(ThreadId 5)] ERROR APP - already at the beginning of the history
+2022-06-10 20:57:12.969774300000 [$pid(ThreadId 5)] ERROR APP - already at the beginning of the history
+2022-06-10 20:57:43.906743800000 [$pid(ThreadId 5)] ERROR APP - already at the beginning of the history
+2022-06-10 20:57:45.656144100000 [$pid(ThreadId 5)] ERROR APP - already at the beginning of the history
