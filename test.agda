@@ -9,17 +9,34 @@ data Nat : Set where
   suc : Nat -> Nat
 
 
-plus : Nat -> Nat -> Nat
-plus zero y = y
-plus (suc x) y = suc (plus x y)
+plus : Nat → Nat → Nat
+plus zero n = n
+plus (suc m) n = suc (plus m n)
 
 mult : Nat -> Nat -> Nat
 mult zero y = zero
 mult (suc x) y = plus y (mult x y)
 
+twice : Nat → Nat
+twice zero = zero
+twice (suc n) = suc (suc (twice n))
+
+pow2 : Nat → Nat
+pow2 zero = suc zero
+pow2 (suc n) = twice (pow2 n)
+
+
+consume : Nat → Nat
+consume zero = zero
+consume (suc n) = consume n
+
+one = suc zero
+two = suc one
+three = suc two
+
 ans = plus (suc zero) (suc zero)
 ans2 = mult (suc (suc (suc zero))) (suc (suc zero))
-
+test2 = consume (pow2 (twice (twice (twice three))))
 
 -- notFalse = not False
 

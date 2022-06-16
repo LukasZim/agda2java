@@ -29,7 +29,7 @@ class Main
   public static void main (String[] args)
   {
     plus = (AgdaLambda) a -> (AgdaLambda) b -> {
-                                                 return ((AgdaData) a).match(new NatVisitor()
+                                                 return ((AgdaData) b).match(new NatVisitor()
                                                                              {
                                                                                public Agda zero ()
                                                                                {
@@ -42,7 +42,7 @@ class Main
                                                                              });
                                                };
     mult = (AgdaLambda) d -> (AgdaLambda) e -> {
-                                                 return ((AgdaData) d).match(new NatVisitor()
+                                                 return ((AgdaData) e).match(new NatVisitor()
                                                                              {
                                                                                public Agda zero ()
                                                                                {
@@ -54,14 +54,57 @@ class Main
                                                                                }
                                                                              });
                                                };
+    twice = (AgdaLambda) g -> {
+                                return ((AgdaData) g).match(new NatVisitor()
+                                                            {
+                                                              public Agda zero ()
+                                                              {
+                                                                return g;
+                                                              }
+                                                              public Agda suc (Agda h)
+                                                              {
+                                                                return new suc(new suc(runFunction(h, ((AgdaLambda) twice))));
+                                                              }
+                                                            });
+                              };
+    pow2 = (AgdaLambda) i -> {
+                               return ((AgdaData) i).match(new NatVisitor()
+                                                           {
+                                                             public Agda zero ()
+                                                             {
+                                                               return new suc(i);
+                                                             }
+                                                             public Agda suc (Agda j)
+                                                             {
+                                                               return runFunction(runFunction(j, ((AgdaLambda) pow2)), ((AgdaLambda) twice));
+                                                             }
+                                                           });
+                             };
+    consume = (AgdaLambda) k -> {
+                                  return ((AgdaData) k).match(new NatVisitor()
+                                                              {
+                                                                public Agda zero ()
+                                                                {
+                                                                  return k;
+                                                                }
+                                                                public Agda suc (Agda l)
+                                                                {
+                                                                  return runFunction(l, ((AgdaLambda) consume));
+                                                                }
+                                                              });
+                                };
+    one = new suc(new zero());
+    two = new suc(one);
+    three = new suc(two);
     ans = runFunction(new suc(new zero()), ((AgdaLambda) runFunction(new suc(new zero()), ((AgdaLambda) plus))));
     ans2 = runFunction(new suc(new suc(new suc(new zero()))), ((AgdaLambda) runFunction(new suc(new suc(new zero())), ((AgdaLambda) mult))));
+    test2 = runFunction(runFunction(runFunction(runFunction(runFunction(three, ((AgdaLambda) twice)), ((AgdaLambda) twice)), ((AgdaLambda) twice)), ((AgdaLambda) pow2)), ((AgdaLambda) consume));
   }
   public static Agda runFunction (Agda arg, AgdaLambda l)
   {
     return l.run(arg);
   }
-  private static Agda plus, mult, ans, ans2;
+  private static Agda plus, mult, twice, pow2, consume, one, two, three, ans, ans2, test2;
   interface BoolVisitor extends Visitor
   {
     Agda False ()

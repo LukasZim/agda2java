@@ -454,25 +454,6 @@ instance ToJava TTerm JavaExp where
                 empty :: [JavaAtom]
                 empty = []
             toJava (cc, empty, zero)
-        -- TCase num caseType term alts -> do
-        --     special <- isSpecialCase caseType
-        --     case special of
-        --         Nothing -> do
-        --             withFreshVars' EagerEvaluation 0 $ \xs -> do
-        --                 let parsedType = getTypeFromCaseInfo caseType
-        --                 qname <- getConstNameFromCaseInfo caseType
-        --                 case qname of
-        --                   Nothing -> __IMPOSSIBLE__
-        --                   Just qn -> do
-        --                     ToJavaDef atom _ constr visitorName <- lookupJavaDef qn
-        --                     x <- buildCaseClasses atom constr visitorName alts
-        --                     return $
-        --                         InstanceCreation
-        --                             []
-        --                             (TypeDeclSpecifier $ ClassType [(Ident $ unpack visitorName, [])])
-        --                             []
-        --                             (Just $ ClassBody x)
-        --         Just sc -> __IMPOSSIBLE__
         TCon qname -> do
             ToJavaCon name nargs bool <- lookupJavaCon qname
             return $  InstanceCreation [] (TypeDeclSpecifier $ ClassType ([(Ident $ unpack name, [])])) [] Nothing
@@ -482,6 +463,7 @@ instance ToJava TTerm JavaExp where
             liftIO do
                 print "it is not a good sign the compiler ended up here!"
                 -- putStrLn $ show x
+                print x
             let zero :: Int
                 zero = 0
                 empty :: [JavaAtom]
@@ -503,7 +485,7 @@ instance ToJava (TTerm, [JavaAtom], Integer) Block where
                             Just qn -> do
                                 ToJavaDef atom _ constr visitorName <- lookupJavaDef qn
                                 x <- buildCaseClasses atom constr visitorName xs (index+1) alts
-                                let curName = xs Prelude.!! Prelude.fromIntegral index
+                                let curName = xs Prelude.!! Prelude.fromIntegral num
                                 -- let curName = pack "jef"
                                 return $ Block[BlockStmt $ Return $ Just $ MethodInv $
                                     PrimaryMethodCall
@@ -522,7 +504,21 @@ instance ToJava (TTerm, [JavaAtom], Integer) Block where
             withFreshVar $ \x -> do
                 Block xs <- toJava (v , x:xs, index)
                 -- return $ BlockStmt$ ExpStmt body
-                return $ Block (LocalVars [] (makeType "Agda") [VarDecl (VarId $ Ident $ unpack x) (Just $InitExp expr)] : xs)
+                -- return $ Block (LocalVars [] (makeType "Agda") [VarDecl (VarId $ Ident $ unpack x) (Just $InitExp expr)] : xs)
+                __IMPOSSIBLE__
+
+        TDef defName -> do
+            ToJavaFun name num bs body <- lookupJavaFun defName
+            -- x <- withFreshVars num \xs -> do
+            --     let zero :: Int
+            --         zero = 0
+            --     toJava (body, xs, zero)
+                -- return $ javaDefine name xs parsedBody
+            liftIO do
+                print "TDef"
+                print name
+            return $ Block[BlockStmt $ ExpStmt $ ExpName $ Name [Ident $ unpack name]]
+
         x -> do
             liftIO do
                 print x
@@ -556,11 +552,29 @@ instance ToJava (TTerm, [JavaAtom], Int) JavaExp where
                 ToJavaCon name nargs _ <- lookupJavaCon qname
                 expArgs <- mapM (toJava . helperFun xs index) args
                 return $ InstanceCreation [] (TypeDeclSpecifier $ ClassType [(Ident $ unpack name, [])]) expArgs Nothing
+            TVar i -> do
+                var <- getVar i
+                expArgs <- mapM (toJava . helperFun xs index) args
+                case var of
+                  ExpName (Name[Ident x]) -> return var
+                  _ -> __IMPOSSIBLE__
 
             x -> do
                 liftIO do
                     print x
                 __IMPOSSIBLE__
+        TDef defName -> do
+            ToJavaFun name num bs body <- lookupJavaFun defName
+            -- x <- withFreshVars num \xs -> do
+            --     let zero :: Int
+            --         zero = 0
+            --     toJava (body, xs, zero)
+                -- return $ javaDefine name xs parsedBody
+            liftIO do
+                print "TDef"
+                print name
+            return $ ExpName $ Name [Ident $ unpack name]
+        TErased -> return $ Lit Null
 
         x  -> do
             liftIO do
