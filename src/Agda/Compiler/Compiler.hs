@@ -28,7 +28,7 @@ import Agda.Compiler.ToJava
 
 
 test :: String
-test = "lumfao"
+test = "testCase"
 
 javaBackend :: Backend
 javaBackend = Backend javaBackend'
@@ -56,34 +56,6 @@ javaCommandLineFlags = []
 
 javaPreCompile :: JavaOptions -> TCM JavaOptions
 javaPreCompile = return
-
--- change javaEntry to something from the java-lang library, that makes it so i don't have to do the pretty printing myself
--- javaPostModule :: IsMain -> ModuleName -> [(IsMain, Definition)] -> TCM ()
--- javaPostModule isMain modName defs = do
---     modtext <- do
---         --[([Text], Maybe TTerm)] ->  ([Text], [Maybe TTerm])
---         let treelessdefs = traverse (defToTreeless [] . snd) defs
---             t1 = fst treelessdefs
---             -- t2 = map pack $ concat $ map (map unpack) t1
---             -- text = concatMap fst treelessdefs
---             t = map snd defs
---             ts = traverse (defToTreeless []) t
-
---             d = catMaybes $ snd treelessdefs
---             ds = concat $ traverse (`toJava` t1) d
---         -- tts <- traverse (defToTreeless [] (map snd defs))
---         -- dds <- traverse (`toJava` []) ts
---         dds <- traverse toJava2 ts
---         return $ buildBasicJava [buildMainMethod $ Just $ Block ds]
---     let defToText = T.pack . prettyPrint
---         -- modText = T.intercalate (pack "\n\n") $ map defToText modtext
---         fileText = defToText modtext
---         filename = prettyShow (last $ mnameToList modName) ++ ".java"
---     -- modText <- runToJavaM opts $ do
---     --     xs <- traverse defToTreeless defs
---     --     mainMethod <- buildMainMethod mainBlock
---     --     buildBasicJava []
---     liftIO $ T.writeFile filename fileText
 
 javaPostModule :: JavaOptions -> () -> IsMain -> ModuleName -> [(IsMain, Definition)] -> TCM ()
 javaPostModule opts _ ismain modName defs = do
@@ -129,14 +101,5 @@ javaPostModule opts _ ismain modName defs = do
         return $ defToText whole
 
     liftIO $ T.writeFile fileName (preamble <> modText)
-    -- let defToText = T.pack prettyPrint
-    --     fileName = prettyShow (last $ mnameToList modName) ++ ".java"
-
-    -- modText <- runToJavaM opts $ do
-    --     ts <- catMaybes <$> traverse (defToTreeless2 . snd) defs
-    --     ds <- traverse toJava2 ts
-    --     buildMainMethodMonad ds
-
-    -- liftIO $ T.writeFile fileName modText
 
 
