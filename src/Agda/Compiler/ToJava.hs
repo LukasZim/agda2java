@@ -18,7 +18,7 @@ import Agda.Compiler.Backend
            conSrcCon, conArity, dataCons, recFields, recConHead),
       MonadTCM(liftTCM),
       TCM,
-      HasConstInfo(getConstInfo), tAppView, qnameToList, lookupDefinition )
+      HasConstInfo(getConstInfo), tAppView, qnameToList, lookupDefinition, TPrim (PSeq) )
 import Agda.Syntax.Common
 import Control.Monad.State
 import Language.Java.Syntax
@@ -147,7 +147,6 @@ defToTreeless def
             d@Function {} -> do
                 liftIO do
                     putStrLn $ Agda.Compiler.MAlonzo.Pretty.prettyPrint $ qnameName f
-                    -- print c
                 strat <- getEvaluationStrategy
                 maybeCompiled <- liftTCM $ toTreeless strat f
                 case maybeCompiled of
@@ -334,8 +333,8 @@ getJavaFunctionNames = do
     let defs = gets toJavaFuns
     res <- Map.toList <$> defs
     let res2 = helper res
-    liftIO do
-        print res2
+    -- liftIO do
+    --     print res2
     return res2
         where
             helper :: [(QName, ToJavaFun)]  -> [JavaAtom]
@@ -436,12 +435,6 @@ instance ToJava (Int, [Bool], JavaAtom, TTerm, [QName]) [JavaStmt] where
         TCoerce {} ->  __IMPOSSIBLE__
         TError {} ->  __IMPOSSIBLE__
         -- _ -> __IMPOSSIBLE__
-        -- _ ->    withFreshVars n $ \ xs ->do
-        --             liftIO do
-        --                 print "function something"
-        --                 putStrLn $ show xs
-        --                 print f
-        --             javaDefine f xs <$> toJava body
 
 instance ToJava TTerm JavaExp where
     -- toJava n = __IMPOSSIBLE__
@@ -458,12 +451,14 @@ instance ToJava TTerm JavaExp where
             ToJavaCon name nargs bool <- lookupJavaCon qname
             return $  InstanceCreation [] (TypeDeclSpecifier $ ClassType ([(Ident $ unpack name, [])])) [] Nothing
         TVar n -> do
+            liftIO do
+                print "TVar problem"
             getVar n
         x -> do
             liftIO do
                 print "it is not a good sign the compiler ended up here!"
                 -- putStrLn $ show x
-                print x
+                -- print x
             let zero :: Int
                 zero = 0
                 empty :: [JavaAtom]
@@ -485,11 +480,16 @@ instance ToJava (TTerm, [JavaAtom], Integer) Block where
                             Just qn -> do
                                 ToJavaDef atom _ constr visitorName <- lookupJavaDef qn
                                 x <- buildCaseClasses atom constr visitorName xs (index+1) alts
-                                let curName = xs Prelude.!! Prelude.fromIntegral num
+                                liftIO do
+                                    print $ Prelude.length xs
+                                    print num
+                                    print "asdfXD"
+                                -- let curName = xs Prelude.!! Prelude.fromIntegral num
+
                                 -- let curName = pack "jef"
                                 return $ Block[BlockStmt $ Return $ Just $ MethodInv $
                                     PrimaryMethodCall
-                                        (Cast (makeType "AgdaData") (ExpName $ Name [Ident $ unpack curName]))
+                                        (Cast (makeType "AgdaData") (ExpName $ Name [Ident $ unpack (xs Prelude.!! Prelude.fromIntegral num)]))
                                         []
                                         (Ident "match")
                                         [InstanceCreation
@@ -516,12 +516,10 @@ instance ToJava (TTerm, [JavaAtom], Integer) Block where
                 -- return $ javaDefine name xs parsedBody
             liftIO do
                 print "TDef"
-                print name
+                -- print name
             return $ Block[BlockStmt $ ExpStmt $ ExpName $ Name [Ident $ unpack name]]
 
         x -> do
-            liftIO do
-                print x
             y <- toJava x
             return $ Block[BlockStmt$  ExpStmt y]
 
@@ -532,12 +530,22 @@ instance ToJava (TTerm, [JavaAtom], Int) JavaExp where
             case body of
                 TLam _ -> do
                     parsedBody <- toJava (body, xs, index + 1)
+                    liftIO do
+                        print $ Prelude.length xs
+                        print index
+                        print "buildLambda is going to shit"
+
                     return $ buildLambda xs parsedBody index
                 _ -> do
                     let zero :: Integer
                         zero = 0
                     Block stmts <- toJava (body, xs, zero)
-                    return $ buildLastLambda  xs (stmts) index
+                    liftIO do
+                        print $ Prelude.length xs
+                        print index
+                        print "buildLastLambda is going to shit"
+
+                    return $ buildLastLambda  xs stmts index
 
         TCon qname -> do
             ToJavaCon name nargs bool <- lookupJavaCon qname
@@ -553,11 +561,28 @@ instance ToJava (TTerm, [JavaAtom], Int) JavaExp where
                 expArgs <- mapM (toJava . helperFun xs index) args
                 return $ InstanceCreation [] (TypeDeclSpecifier $ ClassType [(Ident $ unpack name, [])]) expArgs Nothing
             TVar i -> do
+                liftIO do
+                    print "TVar problem"
                 var <- getVar i
                 expArgs <- mapM (toJava . helperFun xs index) args
                 case var of
                   ExpName (Name[Ident x]) -> return var
                   _ -> __IMPOSSIBLE__
+            TPrim PSeq -> do
+                case args of
+                  [] -> __IMPOSSIBLE__
+                  tt : tts -> do
+                    var <- toJava (tt , xs, index)
+                    case var of
+                        ExpName (Name [Ident name])-> do
+                            compiledArgs <- mapM (\x -> toJava(x, xs, index)) tts
+                            return $ useRunFunction (pack name) compiledArgs
+                        x -> __IMPOSSIBLE__
+                    -- return Nothing
+                -- liftIO do
+                --     print term
+                --     print args
+                -- __IMPOSSIBLE__
 
             x -> do
                 liftIO do
