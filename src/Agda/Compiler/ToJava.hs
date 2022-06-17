@@ -50,9 +50,7 @@ import qualified Data.Text as T
 import Data.Char
 import Agda.Compiler.Treeless.EliminateLiteralPatterns (eliminateLiteralPatterns)
 import Agda.Compiler.Treeless.GuardsToPrims (convertGuards)
--- import qualified Data.Foldable as Map
 import Distribution.SPDX (LicenseId(AFL_3_0))
--- import Agda.Compiler.ToJavaBackup (javaDataType, JavaAtom)
 
 type JavaAtom = Text
 type JavaForm = Decl
@@ -89,7 +87,7 @@ data ToJavaState = ToJavaState
 data ToJavaEnv = ToJavaEnv
     {
         toJavaOptions :: JavaOptions
-        , toJavaVars :: [JavaExp] -- not sure this is correctly typed yet
+        , toJavaVars :: [JavaExp]
     }
 
 freshVars :: [JavaAtom]
@@ -99,7 +97,6 @@ freshVars = Prelude.concat [ Prelude.map (<> i) xs | i <- pack "":Prelude.map (p
 
 buildMainMethodMonad :: [BlockStmt] -> [JavaStmt] -> ToJavaM CompilationUnit
 buildMainMethodMonad block b = do
-    -- let intermediate x = buildBasicJava  [buildMainMethod(Just x)]
     return $ buildBasicJava (buildMainMethod (Just $ Block block) : b)
 
 buildBasicJava :: [Decl] -> CompilationUnit
@@ -139,8 +136,6 @@ defToTreeless def
             c = theDef def
         case c of
             Axiom {} -> do
-                -- f' <- newJavaDef f 0 []
-                -- this should probably be newjavafun
                 return Nothing
             GeneralizableVar{} -> return Nothing
             d@Function{} | d ^. funInline -> return Nothing
@@ -166,18 +161,10 @@ defToTreeless def
                         Constructor { conSrcCon = chead, conArity = nargs } -> do
                             processCon chead nargs eraseTag f
                             lookupJavaDef f
-                            -- addJavaConToDatatype f name nargs
                         _ -> __IMPOSSIBLE__
                 return $ Just (0, [], pack $ Agda.Compiler.MAlonzo.Pretty.prettyPrint $qnameName f, TCon f, [])
-            -- Record{ recConHead = chead, recFields = fs } -> do
-            --     processCon chead (Prelude.length fs) True
-            --     return Nothing
             Record {} -> __IMPOSSIBLE__
 
-            -- vgm hoef je hiero niiks te returnen omdat het al gedaan wordt in datatype
-            -- daarom kan je dus ook de constructors maken in de  method die de datatype maakt in
-            -- tojava zegmaaar, misschine ook niet want mijn brein loopt momenteel mijn neus uit
-            -- en ik wil momenteel even niet bestaan ha ha ha hi ha hondenlul
             Constructor{} -> return Nothing
             AbstractDefn{} -> __IMPOSSIBLE__
             DataOrRecSig{} -> __IMPOSSIBLE__
@@ -185,15 +172,6 @@ defToTreeless def
                 processCon :: ConHead -> Int -> Bool -> QName -> ToJavaM JavaAtom
                 processCon chead nargs b dataname= do
                     newJavaCon (conName chead) dataname nargs b
-
-                -- getInfo :: QName ->  (String, Int)
-                -- getInfo name = do
-                --     c <- getConstInfo name
-                --     case c of
-                --         -- Constructor n i ch qn ia in' ck m_qns ifs m_bs ->  (show $qnameName name, n)
-                --         -- _ -> __IMPOSSIBLE__
-                --     -- return c
-
 
 
 newJavaCon :: QName -> QName -> Int -> Bool -> ToJavaM JavaAtom
