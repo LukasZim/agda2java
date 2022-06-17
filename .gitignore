@@ -1,2 +1,14 @@
 .stack-work/
 *~
+*.gz
+*.hi
+*.o
+*.exe
+*.h
+dist-newstyle/build/x86_64-windows/ghc-9.0.1/agda2scheme-0.1.0.0/x/agda2java/build/agda2java/autogen/Paths_agda2scheme.hs
+dist-newstyle/build/x86_64-windows/ghc-9.0.1/agda2scheme-0.1.0.0/x/agda2java/cache/build
+dist-newstyle/build/x86_64-windows/ghc-9.0.1/agda2scheme-0.1.0.0/x/agda2java/cache/config
+dist-newstyle/build/x86_64-windows/ghc-9.0.1/agda2scheme-0.1.0.0/x/agda2java/cache/registration
+dist-newstyle/build/x86_64-windows/ghc-9.0.1/agda2scheme-0.1.0.0/x/agda2java/package.conf.inplace/package.cache
+dist-newstyle/build/x86_64-windows/ghc-9.0.1/agda2scheme-0.1.0.0/x/agda2java/package.conf.inplace/package.cache.lock
+dist-newstyle/build/x86_64-windows/ghc-9.0.1/agda2scheme-0.1.0.0/x/agda2java/setup-config
