@@ -1,10 +1,9 @@
 # agda2java
 
-# this updates the .cabal file for you
-hpack           
+An experimental Agda compiler that targets the Java language. A paper about this project can be found [here](http://resolver.tudelft.nl/uuid:dc59471d-6956-450d-bbd7-733ae5ff3f92)
 
-# this updates the hie.yaml fie for you
-gen-hie > hie.yaml
+# Research Project CSE3000
 
-# TODO
-find a way to auto format code, if im right, debugging is possible now.
+This repository links to the work of students for the Research project course of the CSE bachelor at TU Delft.
+
+Please see their projects [here](https://cse3000-research-project.github.io/).
